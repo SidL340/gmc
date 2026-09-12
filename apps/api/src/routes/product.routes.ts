@@ -1,0 +1,36 @@
+import { Router } from 'express';
+import multer from 'multer';
+import {
+  getProducts,
+  getProduct,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  uploadProductMedia,
+  generateAIImage,
+  deleteProductImage,
+  getProductBarcode,
+  getTikTokPreview,
+} from '../controllers/product.controller';
+import { authenticate, requireAdmin } from '../middleware/auth.middleware';
+
+const router  = Router();
+const upload  = multer({ dest: '/tmp/uploads/' });
+
+// ── Public routes ─────────────────────────────────────────────────────────────
+router.get('/',                      getProducts);
+router.get('/tiktok-preview',        getTikTokPreview);   // Admin helper — preview TikTok before saving
+router.get('/:slug',                 getProduct);
+
+// ── Admin routes ──────────────────────────────────────────────────────────────
+router.post('/',                     authenticate, requireAdmin, createProduct);
+router.put('/:id',                   authenticate, requireAdmin, updateProduct);
+router.delete('/:id',                authenticate, requireAdmin, deleteProduct);
+
+router.post('/:id/images',           authenticate, requireAdmin, upload.array('files', 10), uploadProductMedia);
+router.post('/:id/generate-ai-image',authenticate, requireAdmin, generateAIImage);
+router.delete('/:id/images/:imageId',authenticate, requireAdmin, deleteProductImage);
+
+router.get('/:id/barcode',           authenticate, requireAdmin, getProductBarcode);
+
+export default router;
