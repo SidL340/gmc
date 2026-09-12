@@ -15,6 +15,10 @@ if (Test-Path (Join-Path $pgBin "pg_ctl.exe")) {
     $pgProc = Get-Process "postgres" -ErrorAction SilentlyContinue
     if (-not $pgProc) {
         Write-Host "Starting local PostgreSQL server..." -ForegroundColor Yellow
+        $stalePid = Join-Path $pgData "postmaster.pid"
+        if (Test-Path $stalePid) {
+            Remove-Item $stalePid -Force -ErrorAction SilentlyContinue
+        }
         & "$pgBin\pg_ctl.exe" -D $pgData -l $pgLog start
         Start-Sleep -Seconds 2
     } else {
