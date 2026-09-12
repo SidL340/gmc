@@ -20,17 +20,12 @@ const NAV_ITEMS = [
     label: 'Products',
     href:  '/products',
     icon:  Package,
-    children: [
-      { label: 'All Products', href: '/products' },
-      { label: 'Add Product',  href: '/products/new' },
-      { label: 'Categories',   href: '/products/categories' },
-    ],
   },
   {
     label: 'Orders',
     href:  '/orders',
     icon:  ShoppingCart,
-    badge: 'orders', // dynamic badge from store
+    badge: 'orders',
   },
   {
     label: 'Customers',
@@ -43,7 +38,7 @@ const NAV_ITEMS = [
     icon:  Printer,
   },
   {
-    label: 'Delivery',
+    label: 'Delivery (NCM)',
     href:  '/delivery',
     icon:  Truck,
   },
@@ -61,12 +56,6 @@ const NAV_ITEMS = [
     label: 'Accounting',
     href:  '/accounting',
     icon:  BarChart3,
-    children: [
-      { label: 'Dashboard',    href: '/accounting' },
-      { label: 'Sales Report', href: '/accounting/sales' },
-      { label: 'Expenses',     href: '/accounting/expenses' },
-      { label: 'Profit',       href: '/accounting/profit' },
-    ],
   },
   {
     label: 'Notifications',
@@ -100,45 +89,18 @@ export default function AdminSidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
           const Icon     = item.icon;
-          const hasChildren = item.children && item.children.length > 0;
 
           return (
-            <div key={item.href}>
-              <Link
-                href={item.href}
-                className={cn('sidebar-link', isActive && 'active')}
-              >
-                <Icon size={17} className="flex-shrink-0" />
-                <span className="flex-1">{item.label}</span>
-                {hasChildren && (
-                  <ChevronRight
-                    size={14}
-                    className={cn('transition-transform', isActive && 'rotate-90')}
-                  />
-                )}
-              </Link>
-
-              {/* Sub-items — shown when parent is active */}
-              {hasChildren && isActive && (
-                <div className="ml-8 mt-0.5 space-y-0.5">
-                  {item.children!.map((child) => (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      className={cn(
-                        'flex items-center px-3 py-1.5 rounded-lg text-xs text-gray-500',
-                        'hover:text-white hover:bg-white/5 transition-all',
-                        pathname === child.href && 'text-primary-400 font-medium',
-                      )}
-                    >
-                      {child.label}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn('sidebar-link', isActive && 'active')}
+            >
+              <Icon size={17} className="flex-shrink-0" />
+              <span className="flex-1">{item.label}</span>
+            </Link>
           );
         })}
       </nav>

@@ -47,6 +47,28 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
   res.json({ success: true, data: user });
 };
 
+function normalizeProvince(val?: string): Province {
+  if (!val) return Province.BAGMATI;
+  const clean = String(val).toUpperCase().trim();
+  const map: Record<string, Province> = {
+    KOSHI: Province.KOSHI,
+    'PROVINCE 1': Province.KOSHI,
+    MADHESH: Province.MADHESH,
+    'PROVINCE 2': Province.MADHESH,
+    BAGMATI: Province.BAGMATI,
+    'PROVINCE 3': Province.BAGMATI,
+    GANDAKI: Province.GANDAKI,
+    'PROVINCE 4': Province.GANDAKI,
+    LUMBINI: Province.LUMBINI,
+    'PROVINCE 5': Province.LUMBINI,
+    KARNALI: Province.KARNALI,
+    'PROVINCE 6': Province.KARNALI,
+    SUDURPASHCHIM: Province.SUDURPASHCHIM,
+    'PROVINCE 7': Province.SUDURPASHCHIM,
+  };
+  return map[clean] || (Object.values(Province).includes(clean as any) ? (clean as Province) : Province.BAGMATI);
+}
+
 export const getAddresses = async (req: AuthRequest, res: Response) => {
   const addresses = await prisma.address.findMany({
     where: { userId: req.user!.id },
@@ -81,7 +103,7 @@ export const addAddress = async (req: AuthRequest, res: Response) => {
       label: label || 'Home',
       fullName,
       phone,
-      province: province as Province,
+      province: normalizeProvince(province),
       district,
       municipality,
       ward: String(ward),
@@ -119,7 +141,7 @@ export const updateAddress = async (req: AuthRequest, res: Response) => {
       ...(label && { label }),
       ...(fullName && { fullName }),
       ...(phone && { phone }),
-      ...(province && { province: province as Province }),
+      ...(province && { province: normalizeProvince(province) }),
       ...(district && { district }),
       ...(municipality && { municipality }),
       ...(ward && { ward: String(ward) }),
