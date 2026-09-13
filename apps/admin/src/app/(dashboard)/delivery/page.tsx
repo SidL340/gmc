@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Truck, Search, MapPin, Calculator, ExternalLink,
-  Printer, CheckCircle2, Clock, PackageCheck, AlertCircle
+  Printer, CheckCircle2, Clock, PackageCheck, AlertCircle,
+  Settings, Key, ShieldCheck, Eye, EyeOff, Check, X, RefreshCw
 } from 'lucide-react';
 import { adminApi } from '@/lib/api';
 import { formatNPR, formatDateTime } from '@/lib/utils';
@@ -15,6 +16,7 @@ export default function DeliveryManagementPage() {
   const [rateEstimate, setRateEstimate] = useState<number | null>(null);
   const [calcLoading, setCalcLoading] = useState(false);
   const [labelOrderId, setLabelOrderId] = useState<string | null>(null);
+  const [showVendorModal, setShowVendorModal] = useState(false);
 
   // Fetch NCM config (demo vs production)
   const { data: ncmConfig } = useQuery({
@@ -64,7 +66,7 @@ export default function DeliveryManagementPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {ncmConfig?.isDemo ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -76,6 +78,12 @@ export default function DeliveryManagementPage() {
               Live Production
             </span>
           )}
+          <button
+            onClick={() => setShowVendorModal(true)}
+            className="btn-primary text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Settings size={13} /> Vendor API Setup
+          </button>
           <a
             href={ncmConfig?.portalUrl || 'https://demo.nepalcanmove.com/'}
             target="_blank"
@@ -332,6 +340,241 @@ export default function DeliveryManagementPage() {
           </div>
         </div>
       )}
+
+      {/* Vendor Setup Modal */}
+      {showVendorModal && (
+        <NCMVendorSetupModal
+          config={ncmConfig}
+          onClose={() => setShowVendorModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function NCMVendorSetupModal({
+  config,
+  onClose,
+}: {
+  config: any;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [env, setEnv] = useState<'demo' | 'production'>(config?.environment || 'demo');
+  const [token, setToken] = useState('');
+  const [branch, setBranch] = useState(config?.defaultFromBranch || 'TINKUNE');
+  const [showToken, setShowToken] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const promises = [
+        adminApi.put('/api/settings', { key: 'ncm_environment', value: env }),
+        adminApi.put('/api/settings', { key: 'ncm_from_branch', value: branch.toUpperCase().trim() }),
+      ];
+      if (token.trim()) {
+        promises.push(adminApi.put('/api/settings', { key: 'ncm_api_token', value: token.trim() }));
+      }
+      return Promise.all(promises);
+    },
+    onSuccess: () => {
+      toast.success('Logistics vendor settings saved successfully!');
+      qc.invalidateQueries({ queryKey: ['ncm-config'] });
+      qc.invalidateQueries({ queryKey: ['ncm-branches'] });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to save settings.');
+    },
+  });
+
+  const handleTestConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await adminApi.get('/api/shipments/branches');
+      const count = Array.isArray(res.data?.data) ? res.data.data.length : 0;
+      setTestResult({
+        success: true,
+        message: `Successfully connected! Fetched ${count} delivery hub branches across Nepal.`,
+      });
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: err.response?.data?.message || 'Connection test failed. Verify network or credentials.',
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 text-primary-600 flex items-center justify-center">
+              <Truck size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-base font-serif">Logistics Partner Vendor Setup</h3>
+              <p className="text-[11px] text-gray-500">NepalCanMove REST v2 API Credentials &amp; Fulfillment</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Instructions */}
+        <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-100 text-xs space-y-1.5 text-blue-900">
+          <p className="font-bold flex items-center gap-1.5 text-blue-950">
+            <ShieldCheck size={14} className="text-blue-600" />
+            How to Link your Official Vendor Account:
+          </p>
+          <ol className="list-decimal list-inside space-y-1 text-[11px] text-blue-800">
+            <li>Register as a Merchant on <a href="https://nepalcanmove.com" target="_blank" rel="noopener noreferrer" className="font-bold underline text-blue-900">nepalcanmove.com</a> for COD bank payout settlement.</li>
+            <li>In your NCM Merchant Portal, open <strong>Settings ➡️ API Credentials</strong>.</li>
+            <li>Copy your <strong>API Token</strong>, select <strong>Production</strong> below, and click Save.</li>
+          </ol>
+        </div>
+
+        <div className="space-y-4 text-xs">
+          {/* Environment */}
+          <div>
+            <label className="font-bold text-gray-700 block mb-1">Environment Mode</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setEnv('demo')}
+                className={`py-2 px-3 rounded-xl border text-left flex items-center justify-between cursor-pointer transition-all ${
+                  env === 'demo'
+                    ? 'border-amber-400 bg-amber-50 text-amber-900 font-bold'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <div>
+                  <p className="text-xs">Demo (Sandbox)</p>
+                  <p className="text-[10px] text-gray-500 font-normal">Safe testing with demo token</p>
+                </div>
+                {env === 'demo' && <Check size={16} className="text-amber-600" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEnv('production')}
+                className={`py-2 px-3 rounded-xl border text-left flex items-center justify-between cursor-pointer transition-all ${
+                  env === 'production'
+                    ? 'border-green-500 bg-green-50 text-green-900 font-bold'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <div>
+                  <p className="text-xs">Production (Live)</p>
+                  <p className="text-[10px] text-gray-500 font-normal">Real pickups &amp; deliveries</p>
+                </div>
+                {env === 'production' && <Check size={16} className="text-green-600" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Current Status */}
+          <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+            <span className="text-gray-500 font-medium">Active Token Status:</span>
+            <span className="font-mono font-bold text-gray-800">
+              {config?.maskedToken || (env === 'demo' ? 'Default NCM Demo Token' : 'Not configured')}
+            </span>
+          </div>
+
+          {/* API Token Input */}
+          <div>
+            <label className="font-bold text-gray-700 block mb-1">
+              {env === 'production' ? 'Live NCM Vendor API Token' : 'Custom Token (Optional)'}
+            </label>
+            <div className="relative">
+              <input
+                type={showToken ? 'text' : 'password'}
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder={config?.hasCustomToken ? 'Leave blank to keep existing token' : 'Paste NCM Vendor API Token'}
+                className="input w-full pr-10 text-xs font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken(!showToken)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                {showToken ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">
+              {env === 'demo'
+                ? 'Leave blank to use the built-in verified NCM Demo vendor token.'
+                : 'Obtain from your official NepalCanMove merchant profile.'}
+            </p>
+          </div>
+
+          {/* Default Pickup Hub */}
+          <div>
+            <label className="font-bold text-gray-700 block mb-1">Store Pickup Branch / Hub</label>
+            <input
+              type="text"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value.toUpperCase())}
+              placeholder="TINKUNE"
+              className="input w-full text-xs font-mono"
+            />
+            <p className="text-[10px] text-gray-400 mt-1">
+              GM Collection House central store location (default: <span className="font-bold">TINKUNE</span>).
+            </p>
+          </div>
+
+          {/* Connection Test */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={testing}
+              className="btn-secondary text-xs w-full justify-center flex items-center gap-1.5 py-2 cursor-pointer"
+            >
+              <RefreshCw size={13} className={testing ? 'animate-spin' : ''} />
+              {testing ? 'Testing Connection...' : 'Test Connection to NCM Server'}
+            </button>
+            {testResult && (
+              <p
+                className={`mt-2 p-2 rounded-lg text-[11px] font-medium ${
+                  testResult.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+                }`}
+              >
+                {testResult.message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end pt-3 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-secondary text-xs py-2 px-4 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="btn-primary text-xs py-2 px-5 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Check size={14} />
+            {saveMutation.isPending ? 'Saving...' : 'Save Vendor Setup'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

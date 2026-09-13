@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { logger } from '../config/logger';
+import { prisma } from '../config/db';
 
 export interface CreateShipmentParams {
   orderId: string;
@@ -46,8 +47,40 @@ export interface NCMBranch {
 class DeliveryService {
   private branchesCache: NCMBranch[] | null = null;
   private branchesCacheTime = 0;
+  private dynamicEnv: string | null = null;
+  private dynamicToken: string | null = null;
+  private dynamicBranch: string | null = null;
+  private dynamicBaseUrl: string | null = null;
+  private lastSettingsFetch = 0;
+
+  /**
+   * Refreshes dynamic settings from database (StoreSetting table)
+   */
+  public async refreshDynamicSettings(): Promise<void> {
+    const now = Date.now();
+    if (now - this.lastSettingsFetch < 10000) return;
+    try {
+      const settings = await prisma.storeSetting.findMany({
+        where: {
+          key: { in: ['ncm_environment', 'ncm_api_token', 'ncm_from_branch', 'ncm_base_url'] },
+        },
+      });
+      const map: Record<string, string> = {};
+      settings.forEach((s) => { map[s.key] = s.value; });
+      this.dynamicEnv = map['ncm_environment'] || null;
+      this.dynamicToken = map['ncm_api_token'] || null;
+      this.dynamicBranch = map['ncm_from_branch'] || null;
+      this.dynamicBaseUrl = map['ncm_base_url'] || null;
+      this.lastSettingsFetch = now;
+    } catch (e: any) {
+      logger.warn('Failed to refresh dynamic NCM settings from DB', { error: e.message });
+    }
+  }
 
   public get environment(): 'demo' | 'production' {
+    if (this.dynamicEnv) {
+      return this.dynamicEnv.toLowerCase() === 'production' ? 'production' : 'demo';
+    }
     if (process.env.NCM_ENV) {
       return process.env.NCM_ENV.toLowerCase() === 'production' ? 'production' : 'demo';
     }
@@ -58,6 +91,9 @@ class DeliveryService {
   }
 
   public get baseUrl(): string {
+    if (this.dynamicBaseUrl) {
+      return this.dynamicBaseUrl.replace(/\/$/, '');
+    }
     if (process.env.NCM_BASE_URL) {
       return process.env.NCM_BASE_URL.replace(/\/$/, '');
     }
@@ -73,6 +109,7 @@ class DeliveryService {
   }
 
   public get apiToken(): string {
+    if (this.dynamicToken) return this.dynamicToken;
     if (process.env.NCM_API_TOKEN) return process.env.NCM_API_TOKEN;
     if (process.env.NCM_API_KEY) return process.env.NCM_API_KEY;
     // In demo mode, fallback to demo vendor token
@@ -83,6 +120,7 @@ class DeliveryService {
   }
 
   public get defaultFromBranch(): string {
+    if (this.dynamicBranch) return this.dynamicBranch.toUpperCase();
     return (process.env.NCM_DEFAULT_FROM_BRANCH || 'TINKUNE').toUpperCase();
   }
 
@@ -91,6 +129,11 @@ class DeliveryService {
   }
 
   public getConfig() {
+    const rawToken = this.apiToken;
+    const maskedToken = rawToken && rawToken.length > 8
+      ? `${rawToken.slice(0, 4)}••••••••${rawToken.slice(-4)}`
+      : (rawToken ? '••••••••' : null);
+
     return {
       environment: this.environment,
       baseUrl: this.baseUrl,
@@ -98,6 +141,8 @@ class DeliveryService {
       defaultFromBranch: this.defaultFromBranch,
       isConfigured: this.isConfigured,
       isDemo: this.environment === 'demo',
+      maskedToken,
+      hasCustomToken: !!this.dynamicToken,
     };
   }
 
@@ -112,6 +157,7 @@ class DeliveryService {
    * Fetch and cache available branches from NepalCanMove
    */
   async getBranches(): Promise<NCMBranch[]> {
+    await this.refreshDynamicSettings();
     const now = Date.now();
     if (this.branchesCache && now - this.branchesCacheTime < 3600000) {
       return this.branchesCache;
@@ -200,6 +246,7 @@ class DeliveryService {
    * Create a live order/shipment in NepalCanMove
    */
   async createShipment(params: CreateShipmentParams): Promise<NCMResponse> {
+    await this.refreshDynamicSettings();
     logger.info(`Creating NCM shipment for order ${params.orderNumber}`);
 
     if (!this.isConfigured) {
@@ -302,6 +349,7 @@ class DeliveryService {
    * Get tracking status and history for an NCM order
    */
   async getTrackingStatus(trackingOrOrderId: string) {
+    await this.refreshDynamicSettings();
     if (!this.isConfigured) {
       return {
         trackingNumber: trackingOrOrderId,
@@ -359,6 +407,7 @@ class DeliveryService {
    * Fetch official NCM shipping label details
    */
   async getOrderLabel(orderId: string | number) {
+    await this.refreshDynamicSettings();
     if (!this.isConfigured) return null;
 
     try {
@@ -379,6 +428,7 @@ class DeliveryService {
    * Calculate live shipping rate to a destination branch
    */
   async calculateRate(destinationBranch: string): Promise<number | null> {
+    await this.refreshDynamicSettings();
     if (!this.isConfigured) return null;
 
     try {

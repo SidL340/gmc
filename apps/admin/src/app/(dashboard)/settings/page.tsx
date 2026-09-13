@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import {
   Store, Phone, MapPin, Globe, Image as ImageIcon,
-  Save, Plus, Trash2, Edit2, Clock,
+  Save, Plus, Trash2, Edit2, Clock, Truck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
@@ -60,6 +60,15 @@ const SETTING_GROUPS = [
       { key: 'freeShippingThreshold', label: 'Free Shipping Above (NPR)', type: 'number', placeholder: '2000' },
       { key: 'shippingCharge',        label: 'Standard Shipping Charge',  type: 'number', placeholder: '150' },
       { key: 'codAvailable',          label: 'COD Available',             type: 'text',   placeholder: 'true' },
+    ],
+  },
+  {
+    title: 'NepalCanMove (NCM) Logistics Vendor Account',
+    icon: Truck,
+    keys: [
+      { key: 'ncm_environment', label: 'NCM Environment (demo or production)', type: 'text', placeholder: 'demo' },
+      { key: 'ncm_api_token',   label: 'NCM Vendor API Token',                type: 'text', placeholder: 'Paste live NCM Vendor API Token' },
+      { key: 'ncm_from_branch', label: 'Default Pickup Branch (e.g. TINKUNE)',type: 'text', placeholder: 'TINKUNE' },
     ],
   },
 ];
