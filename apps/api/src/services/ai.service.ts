@@ -231,7 +231,7 @@ export const chatWithBot = async (
     const settings = await prisma.storeSetting.findMany({
       where: { key: { in: ['storeName', 'storePhone', 'storeAddress', 'storeHours'] } },
     });
-    const storeInfo = Object.fromEntries(settings.map((s) => [s.key, s.value]));
+    const storeInfo = Object.fromEntries(settings.map((s: any) => [s.key, s.value]));
 
     const systemPrompt = `You are a helpful shopping assistant for ${storeInfo.storeName || 'GM Collection House'}, 
 a women's clothing store in Nepal. You help customers:
