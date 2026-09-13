@@ -182,6 +182,49 @@ class DeliveryService {
   }
 
   /**
+   * Test connection to NepalCanMove with current or stored credentials
+   */
+  async testConnection(customCredentials?: {
+    environment?: string;
+    token?: string;
+    fromBranch?: string;
+    baseUrl?: string;
+  }): Promise<{ success: boolean; message: string; branchesCount?: number }> {
+    if (customCredentials) {
+      if (customCredentials.environment) this.dynamicEnv = customCredentials.environment;
+      if (customCredentials.token) this.dynamicToken = customCredentials.token;
+      if (customCredentials.fromBranch) this.dynamicBranch = customCredentials.fromBranch;
+      if (customCredentials.baseUrl) this.dynamicBaseUrl = customCredentials.baseUrl;
+    } else {
+      await this.refreshDynamicSettings();
+    }
+
+    if (!this.apiToken) {
+      return { success: false, message: 'NCM API Token is missing. Please enter your vendor API token.' };
+    }
+
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/v2/branches`, {
+        headers: this.authHeaders,
+        timeout: 10000,
+      });
+
+      const count = Array.isArray(response.data) ? response.data.length : 0;
+      return {
+        success: true,
+        message: `Connected successfully to Nepal Can Move (${this.environment.toUpperCase()})! Verified access to ${count} courier branches.`,
+        branchesCount: count,
+      };
+    } catch (err: any) {
+      const detail = err.response?.data?.detail || err.response?.data?.message || err.message;
+      return {
+        success: false,
+        message: `NCM connection failed (${err.response?.status || 'Network Error'}): ${detail}`,
+      };
+    }
+  }
+
+  /**
    * Automatically resolve the destination branch from district, city, or province
    */
   async resolveDestinationBranch(
