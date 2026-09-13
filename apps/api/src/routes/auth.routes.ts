@@ -9,6 +9,7 @@ import {
   logoutAll,
   getMe,
   adminLogin,
+  googleAuth,
 } from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -23,6 +24,7 @@ const otpLimiter = rateLimit({
 });
 
 // Auth routes
+router.post('/google',                            googleAuth);
 router.post('/send-otp',              otpLimiter, sendOTP);
 router.post('/verify-otp',            otpLimiter, verifyOTPAndLogin);
 router.post('/complete-registration',             completeRegistration);

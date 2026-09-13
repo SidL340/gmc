@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
+import axios from 'axios';
 import { prisma } from '../config/db';
+import { logger } from '../config/logger';
 import { AppError } from '../middleware/errorHandler';
 import { isValidNepalPhone, sendOTPSMS } from '../services/sms.service';
 import {
@@ -278,6 +280,129 @@ export const adminLogin = async (req: Request, res: Response): Promise<void> => 
     message: 'Admin login successful.',
     data: {
       user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
+      accessToken,
+      refreshToken,
+    },
+  });
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/auth/google
+// Body: { credential?: string, demoUser?: boolean }
+// Authenticates user via Google OAuth (ID token) or dev demo
+// ─────────────────────────────────────────────────────────────────────────────
+export const googleAuth = async (req: Request, res: Response): Promise<void> => {
+  const { credential, demoUser } = req.body;
+
+  let googleUser: {
+    email: string;
+    name: string;
+    picture?: string;
+    sub: string;
+  };
+
+  // 1. In dev/demo mode, support testing with a verified Google profile
+  if (demoUser && process.env.NODE_ENV !== 'production') {
+    googleUser = {
+      sub: 'google_demo_108273918237',
+      email: 'maya.gurung@gmail.com',
+      name: 'Maya Gurung',
+      picture: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    };
+  } else {
+    if (!credential) {
+      throw new AppError('Google authentication credential is required.', 400);
+    }
+
+    try {
+      // Verify Google ID token using Google's tokeninfo API
+      const googleRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`, {
+        timeout: 8000,
+      });
+
+      const payload = googleRes.data;
+
+      // Validate issuer and email presence
+      if (!payload.email || !payload.sub) {
+        throw new AppError('Invalid Google credential payload.', 400);
+      }
+
+      // If GOOGLE_CLIENT_ID is set in env, verify audience matches
+      if (process.env.GOOGLE_CLIENT_ID && payload.aud !== process.env.GOOGLE_CLIENT_ID) {
+        throw new AppError('Google token audience mismatch.', 401);
+      }
+
+      googleUser = {
+        sub: payload.sub,
+        email: payload.email.toLowerCase(),
+        name: payload.name || payload.given_name || payload.email.split('@')[0],
+        picture: payload.picture,
+      };
+    } catch (err: any) {
+      logger.error('Google token verification failed', { error: err.response?.data || err.message });
+      throw new AppError('Failed to verify Google account. Please try again.', 401);
+    }
+  }
+
+  // 2. Find existing user by googleId or email
+  let user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { googleId: googleUser.sub },
+        { email: googleUser.email },
+      ],
+    },
+  });
+
+  if (!user) {
+    // Create new customer account
+    user = await prisma.user.create({
+      data: {
+        googleId:   googleUser.sub,
+        email:      googleUser.email,
+        name:       googleUser.name,
+        avatar:     googleUser.picture || null,
+        isVerified: true,
+        role:       'CUSTOMER',
+      },
+    });
+  } else {
+    // Update googleId and avatar if not set, ensure verified
+    const updateData: any = {};
+    if (!user.googleId) updateData.googleId = googleUser.sub;
+    if (!user.avatar && googleUser.picture) updateData.avatar = googleUser.picture;
+    if (!user.isVerified) updateData.isVerified = true;
+
+    if (Object.keys(updateData).length > 0) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data:  updateData,
+      });
+    }
+  }
+
+  if (user.isBlocked) {
+    throw new AppError('Your account has been suspended. Please contact support.', 403);
+  }
+
+  // 3. Generate tokens
+  const payload      = { userId: user.id, role: user.role };
+  const accessToken  = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+  await saveRefreshToken(user.id, refreshToken);
+
+  res.json({
+    success: true,
+    message: `Logged in as ${user.name}`,
+    data: {
+      user: {
+        id:     user.id,
+        name:   user.name,
+        email:  user.email,
+        phone:  user.phone,
+        avatar: user.avatar,
+        role:   user.role,
+      },
       accessToken,
       refreshToken,
     },
