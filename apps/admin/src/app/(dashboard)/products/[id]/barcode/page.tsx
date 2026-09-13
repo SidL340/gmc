@@ -28,7 +28,8 @@ export default function ProductBarcodePage() {
     enabled: !!id,
   });
 
-  const barcodeImageUrl = `http://localhost:5000/api/products/${id}/barcode`;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const barcodeImageUrl = `${apiUrl}/api/products/${id}/barcode`;
 
   const handlePrint = () => {
     window.print();
@@ -263,7 +264,7 @@ export default function ProductBarcodePage() {
                   {copied ? 'SKU Copied!' : 'Copy SKU Code'}
                 </button>
                 <a
-                  href={`http://localhost:3000/shop/${product.slug}`}
+                  href={`${process.env.NEXT_PUBLIC_STORE_URL || 'http://localhost:3000'}/product/${product.slug}`}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full text-center py-2 text-xs font-semibold text-primary-600 hover:underline flex items-center justify-center gap-1"

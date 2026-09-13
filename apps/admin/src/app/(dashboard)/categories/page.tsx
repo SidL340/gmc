@@ -573,7 +573,7 @@ export default function CategoriesPage() {
                     {/* Slug */}
                     <td className="px-5 py-3.5 font-mono text-xs text-gray-600">
                       <a
-                        href={`http://localhost:3000/shop?category=${cat.slug}`}
+                        href={`${process.env.NEXT_PUBLIC_STORE_URL || 'http://localhost:3000'}/shop?category=${cat.slug}`}
                         target="_blank"
                         rel="noreferrer"
                         className="hover:text-primary-600 inline-flex items-center gap-1 group"

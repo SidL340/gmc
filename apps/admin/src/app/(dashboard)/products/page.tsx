@@ -333,7 +333,8 @@ function ProductFormModal({
 }
 
 function BarcodeQuickModal({ product, onClose }: { product: any; onClose: () => void }) {
-  const barcodeUrl = `http://localhost:5000/api/products/${product.id}/barcode`;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const barcodeUrl = `${apiUrl}/api/products/${product.id}/barcode`;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
