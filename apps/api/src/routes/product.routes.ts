@@ -23,6 +23,7 @@ const upload  = multer({ dest: path.join(os.tmpdir(), 'gmc-uploads') });
 // ── Public routes ─────────────────────────────────────────────────────────────
 router.get('/',                      getProducts);
 router.get('/tiktok-preview',        getTikTokPreview);   // Admin helper — preview TikTok before saving
+router.get('/:id/barcode',           getProductBarcode);  // Barcode image for tags & print
 router.get('/:slug',                 getProduct);
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
@@ -33,7 +34,5 @@ router.delete('/:id',                authenticate, requireAdmin, deleteProduct);
 router.post('/:id/images',           authenticate, requireAdmin, upload.array('files', 10), uploadProductMedia);
 router.post('/:id/generate-ai-image',authenticate, requireAdmin, generateAIImage);
 router.delete('/:id/images/:imageId',authenticate, requireAdmin, deleteProductImage);
-
-router.get('/:id/barcode',           authenticate, requireAdmin, getProductBarcode);
 
 export default router;

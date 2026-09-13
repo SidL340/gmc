@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import QueryProvider from '@/components/providers/QueryProvider';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import ChatBot from '@/components/chatbot/ChatBot';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -24,8 +25,9 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans min-h-screen flex flex-col`}>
         <QueryProvider>
           <Navbar />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 pb-16 md:pb-0">{children}</main>
           <Footer />
+          <MobileBottomNav />
           <ChatBot />
           <Toaster
             position="bottom-center"

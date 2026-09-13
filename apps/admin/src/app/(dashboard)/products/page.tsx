@@ -8,7 +8,7 @@ import { z } from 'zod';
 import {
   Plus, Search, Edit2, Trash2, Eye, EyeOff,
   Upload, Video, Image as ImageIcon, Sparkles, Link,
-  X, Check, Barcode, QrCode,
+  X, Check, Barcode, QrCode, Printer, Download, ExternalLink,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
@@ -332,13 +332,69 @@ function ProductFormModal({
   );
 }
 
+function BarcodeQuickModal({ product, onClose }: { product: any; onClose: () => void }) {
+  const barcodeUrl = `http://localhost:5000/api/products/${product.id}/barcode`;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center">
+              <Barcode size={18} />
+            </div>
+            <h3 className="font-bold text-gray-900 text-sm">Product Barcode</h3>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="text-center space-y-1">
+          <p className="font-bold text-gray-900 text-sm line-clamp-2">{product.name}</p>
+          <p className="text-xs text-gray-500 font-mono">SKU: {product.sku}</p>
+          <p className="text-base font-black text-primary-700 mt-1">
+            Rs. {Number(product.discountPrice || product.price).toLocaleString()}
+          </p>
+        </div>
+
+        <div className="p-4 bg-white border border-gray-200 rounded-xl text-center shadow-inner">
+          <img
+            src={barcodeUrl}
+            alt={product.sku}
+            className="mx-auto max-h-20 w-auto object-contain"
+          />
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <a
+            href={barcodeUrl}
+            download={`${product.sku}-barcode.png`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-secondary flex-1 text-xs justify-center flex items-center gap-1.5"
+          >
+            <Download size={14} /> Download
+          </a>
+          <a
+            href={`/products/${product.id}/barcode`}
+            className="btn-primary flex-1 text-xs justify-center flex items-center gap-1.5 shadow-sm"
+          >
+            <Printer size={14} /> Print Labels
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Products List Page ────────────────────────────────────────────────────────
 export default function ProductsPage() {
-  const [showModal,    setShowModal]    = useState(false);
-  const [editing,      setEditing]      = useState<any>(null);
-  const [search,       setSearch]       = useState('');
-  const [page,         setPage]         = useState(1);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DRAFT' | 'OUT_OF_STOCK' | 'DISCONTINUED'>('ALL');
+  const [showModal,      setShowModal]      = useState(false);
+  const [editing,        setEditing]        = useState<any>(null);
+  const [barcodeProduct, setBarcodeProduct] = useState<any>(null);
+  const [search,         setSearch]         = useState('');
+  const [page,           setPage]           = useState(1);
+  const [statusFilter,   setStatusFilter]   = useState<'ALL' | 'ACTIVE' | 'DRAFT' | 'OUT_OF_STOCK' | 'DISCONTINUED'>('ALL');
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -543,13 +599,14 @@ export default function ProductsPage() {
                       >
                         <Sparkles size={15} />
                       </button>
-                      <a
-                        href={`/products/${p.id}/barcode`}
-                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Download barcode"
+                      <button
+                        type="button"
+                        onClick={() => setBarcodeProduct(p)}
+                        className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="View / Print barcode"
                       >
                         <Barcode size={15} />
-                      </a>
+                      </button>
                       <button
                         onClick={() => { setEditing(p); setShowModal(true); }}
                         className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
@@ -615,6 +672,14 @@ export default function ProductsPage() {
         <ProductFormModal
           product={editing}
           onClose={() => { setShowModal(false); setEditing(null); }}
+        />
+      )}
+
+      {/* Barcode Quick Modal */}
+      {barcodeProduct && (
+        <BarcodeQuickModal
+          product={barcodeProduct}
+          onClose={() => setBarcodeProduct(null)}
         />
       )}
     </div>

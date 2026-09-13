@@ -192,7 +192,7 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
 export const getProduct = async (req: Request, res: Response): Promise<void> => {
   const { slug } = req.params;
 
-  const product = await prisma.product.findUnique({
+  let product = await prisma.product.findUnique({
     where: { slug },
     include: {
       category:  { select: { id: true, name: true, slug: true } },
@@ -206,6 +206,23 @@ export const getProduct = async (req: Request, res: Response): Promise<void> => 
       },
     },
   });
+
+  if (!product) {
+    product = await prisma.product.findUnique({
+      where: { id: slug },
+      include: {
+        category:  { select: { id: true, name: true, slug: true } },
+        images:    { orderBy: { sortOrder: 'asc' } },
+        variants:  true,
+        reviews:   {
+          where:   { isApproved: true },
+          include: { user: { select: { name: true, avatar: true } } },
+          orderBy: { createdAt: 'desc' },
+          take:    10,
+        },
+      },
+    });
+  }
 
   if (!product) throw new AppError('Product not found.', 404);
   if (product.status === 'DISCONTINUED') throw new AppError('Product no longer available.', 404);
@@ -514,7 +531,18 @@ export const deleteProductImage = async (req: Request, res: Response): Promise<v
 export const getProductBarcode = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
 
-  const product = await prisma.product.findUnique({ where: { id }, select: { sku: true, name: true } });
+  let product = await prisma.product.findUnique({
+    where: { id },
+    select: { sku: true, name: true, price: true },
+  });
+
+  if (!product) {
+    product = await prisma.product.findUnique({
+      where: { slug: id },
+      select: { sku: true, name: true, price: true },
+    });
+  }
+
   if (!product?.sku) throw new AppError('Product or SKU not found.', 404);
 
   const png = await bwipjs.toBuffer({
@@ -527,7 +555,7 @@ export const getProductBarcode = async (req: Request, res: Response): Promise<vo
   });
 
   res.setHeader('Content-Type', 'image/png');
-  res.setHeader('Content-Disposition', `attachment; filename="${product.sku}-barcode.png"`);
+  res.setHeader('Content-Disposition', `inline; filename="${product.sku}-barcode.png"`);
   res.send(png);
 };
 
