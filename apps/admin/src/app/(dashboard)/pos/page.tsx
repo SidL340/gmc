@@ -5,11 +5,12 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Search, Plus, Minus, Trash2, Printer, QrCode,
   CreditCard, Banknote, Smartphone, X, Check,
-  Barcode, Volume2, Sparkles,
+  Barcode, Volume2, Sparkles, Camera,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
 import { formatNPR } from '@/lib/utils';
+import CameraBarcodeScanner from '@/components/CameraBarcodeScanner';
 
 // Web Audio API feedback for physical barcode scanner guns
 function playPOSBeep(success = true) {
@@ -104,6 +105,7 @@ export default function POSPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [billDiscount,  setBillDiscount]  = useState(0); // bill-level discount %
   const [lastSale,      setLastSale]      = useState<any>(null);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Product search
@@ -197,85 +199,90 @@ export default function POSPage() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
+  // Common barcode resolution (for both physical scanner gun and phone camera)
+  const processBarcodeQuery = async (query: string) => {
+    const clean = query.trim();
+    if (!clean) return;
+
+    let matches = searchResults;
+    if (!matches || matches.length === 0) {
+      try {
+        const res = await adminApi.get(`/api/pos/products?q=${encodeURIComponent(clean)}`);
+        matches = res.data?.data || [];
+      } catch {
+        matches = [];
+      }
+    }
+
+    if (!matches || matches.length === 0) {
+      playPOSBeep(false);
+      toast.error(`No product found for barcode/SKU: "${clean}"`);
+      return;
+    }
+
+    // 1. Exact variant SKU match
+    let matchedProduct: any = null;
+    let matchedVariant: any = null;
+
+    for (const prod of matches) {
+      if (prod.variants?.length > 0) {
+        const v = prod.variants.find((variantItem: any) =>
+          variantItem.sku?.trim().toLowerCase() === clean.toLowerCase()
+        );
+        if (v) {
+          matchedProduct = prod;
+          matchedVariant = v;
+          break;
+        }
+      }
+    }
+
+    // 2. Exact product barcode or SKU match
+    if (!matchedProduct) {
+      for (const prod of matches) {
+        if (
+          prod.barcode?.trim().toLowerCase() === clean.toLowerCase() ||
+          prod.sku?.trim().toLowerCase() === clean.toLowerCase()
+        ) {
+          matchedProduct = prod;
+          if (prod.variants?.length === 1) {
+            matchedVariant = prod.variants[0];
+          }
+          break;
+        }
+      }
+    }
+
+    // 3. Fallback: single search result
+    if (!matchedProduct && matches.length === 1) {
+      matchedProduct = matches[0];
+      if (matchedProduct.variants?.length === 1) {
+        matchedVariant = matchedProduct.variants[0];
+      }
+    }
+
+    if (matchedProduct && (matchedVariant || !matchedProduct.variants?.length)) {
+      addItem(matchedProduct, matchedVariant);
+      playPOSBeep(true);
+      const detail = matchedVariant
+        ? ` (${[matchedVariant.size, matchedVariant.color, matchedVariant.sku].filter(Boolean).join(' · ')})`
+        : '';
+      toast.success(`Scanned: ${matchedProduct.name}${detail}`, { duration: 1500 });
+      setSearch('');
+    } else if (matchedProduct && matchedProduct.variants?.length > 1) {
+      playPOSBeep(true);
+      toast('Multiple sizes available — select from list below', { icon: '👆' });
+    } else {
+      playPOSBeep(true);
+      toast('Multiple products found — click to select', { icon: '👆' });
+    }
+  };
+
   // Handle physical scanner gun Enter key & instant auto-add
-  const handleSearchKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const query = search.trim();
-      if (!query) return;
-
-      let matches = searchResults;
-      if (!matches || matches.length === 0) {
-        try {
-          const res = await adminApi.get(`/api/pos/products?q=${encodeURIComponent(query)}`);
-          matches = res.data?.data || [];
-        } catch {
-          matches = [];
-        }
-      }
-
-      if (!matches || matches.length === 0) {
-        playPOSBeep(false);
-        toast.error(`No product found for barcode/SKU: "${query}"`);
-        return;
-      }
-
-      // 1. Exact variant SKU match
-      let matchedProduct: any = null;
-      let matchedVariant: any = null;
-
-      for (const prod of matches) {
-        if (prod.variants?.length > 0) {
-          const v = prod.variants.find((variantItem: any) =>
-            variantItem.sku?.trim().toLowerCase() === query.toLowerCase()
-          );
-          if (v) {
-            matchedProduct = prod;
-            matchedVariant = v;
-            break;
-          }
-        }
-      }
-
-      // 2. Exact product barcode or SKU match
-      if (!matchedProduct) {
-        for (const prod of matches) {
-          if (
-            prod.barcode?.trim().toLowerCase() === query.toLowerCase() ||
-            prod.sku?.trim().toLowerCase() === query.toLowerCase()
-          ) {
-            matchedProduct = prod;
-            if (prod.variants?.length === 1) {
-              matchedVariant = prod.variants[0];
-            }
-            break;
-          }
-        }
-      }
-
-      // 3. Fallback: single search result
-      if (!matchedProduct && matches.length === 1) {
-        matchedProduct = matches[0];
-        if (matchedProduct.variants?.length === 1) {
-          matchedVariant = matchedProduct.variants[0];
-        }
-      }
-
-      if (matchedProduct && (matchedVariant || !matchedProduct.variants?.length)) {
-        addItem(matchedProduct, matchedVariant);
-        playPOSBeep(true);
-        const detail = matchedVariant
-          ? ` (${[matchedVariant.size, matchedVariant.color, matchedVariant.sku].filter(Boolean).join(' · ')})`
-          : '';
-        toast.success(`Scanned: ${matchedProduct.name}${detail}`, { duration: 1500 });
-        setSearch('');
-      } else if (matchedProduct && matchedProduct.variants?.length > 1) {
-        playPOSBeep(true);
-        toast('Multiple sizes available — select from list below', { icon: '👆' });
-      } else {
-        playPOSBeep(true);
-        toast('Multiple products found — click to select', { icon: '👆' });
-      }
+      processBarcodeQuery(search);
     }
   };
 
@@ -292,10 +299,21 @@ export default function POSPage() {
               <Search size={13} className="text-gray-400" />
               Product / Barcode Lookup
             </label>
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <Barcode size={13} />
-              <span>Barcode Gun Ready ⚡</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCameraScanner(true)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-primary-700 text-xs font-semibold border border-rose-200 hover:bg-rose-100 shadow-xs cursor-pointer transition-colors"
+                title="Scan barcode with phone or tablet camera"
+              >
+                <Camera size={13} />
+                <span>Scan via Phone Camera 📱</span>
+              </button>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200 shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <Barcode size={13} />
+                <span>Barcode Gun Ready ⚡</span>
+              </div>
             </div>
           </div>
 
@@ -566,6 +584,17 @@ export default function POSPage() {
           )}
         </button>
       </div>
+
+      {/* Phone Camera Barcode Scanner Modal */}
+      {showCameraScanner && (
+        <CameraBarcodeScanner
+          title="POS Camera Scanner"
+          subtitle="Align garment barcode or size SKU within frame"
+          onScan={(code) => processBarcodeQuery(code)}
+          onClose={() => setShowCameraScanner(false)}
+          continuous={true}
+        />
+      )}
     </div>
   );
 }

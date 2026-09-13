@@ -5,11 +5,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, Filter, Eye, ChevronDown, Package,
   Truck, CheckCircle, XCircle, Clock, Printer, Barcode,
-  Volume2, Check, X,
+  Volume2, Check, X, Camera,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
 import { formatNPR, formatDateTime, getOrderStatusClass } from '@/lib/utils';
+import CameraBarcodeScanner from '@/components/CameraBarcodeScanner';
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -345,6 +346,7 @@ export default function OrdersPage() {
   const [page,         setPage]         = useState(1);
   const [selected,     setSelected]     = useState<any>(null);
   const [showScannerModal, setShowScannerModal] = useState(false);
+  const [scannerInitialCamera, setScannerInitialCamera] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['orders', page, statusFilter, search],
@@ -387,13 +389,31 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowScannerModal(true)}
-          className="btn-primary text-xs flex items-center gap-1.5 shadow-xs cursor-pointer py-2 px-3.5"
-        >
-          <Barcode size={15} /> Bulk Barcode Dispatch Scanner
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setScannerInitialCamera(true);
+              setShowScannerModal(true);
+            }}
+            className="btn-secondary text-xs flex items-center gap-1.5 py-2 px-3 border-rose-200 bg-rose-50 text-primary-700 hover:bg-rose-100 font-semibold cursor-pointer shadow-xs transition-colors"
+          >
+            <Camera size={14} />
+            <span>Scan via Phone Camera 📱</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setScannerInitialCamera(false);
+              setShowScannerModal(true);
+            }}
+            className="btn-primary text-xs flex items-center gap-1.5 shadow-xs cursor-pointer py-2 px-3.5"
+          >
+            <Barcode size={15} />
+            <span>Bulk Barcode Dispatch</span>
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -467,16 +487,26 @@ export default function OrdersPage() {
 
       {/* Bulk Dispatch Scanner Modal */}
       {showScannerModal && (
-        <BulkOrderScannerModal onClose={() => setShowScannerModal(false)} />
+        <BulkOrderScannerModal
+          onClose={() => setShowScannerModal(false)}
+          initialCameraMode={scannerInitialCamera}
+        />
       )}
     </div>
   );
 }
 
-function BulkOrderScannerModal({ onClose }: { onClose: () => void }) {
+function BulkOrderScannerModal({
+  onClose,
+  initialCameraMode = false,
+}: {
+  onClose: () => void;
+  initialCameraMode?: boolean;
+}) {
   const qc = useQueryClient();
   const [action, setAction] = useState<'PACK' | 'SHIP' | 'VERIFY'>('PACK');
   const [inputCode, setInputCode] = useState('');
+  const [showCameraScanner, setShowCameraScanner] = useState(initialCameraMode);
   const [scanLog, setScanLog] = useState<Array<{
     orderNumber: string;
     customerName: string;
@@ -677,14 +707,25 @@ function BulkOrderScannerModal({ onClose }: { onClose: () => void }) {
               {isProcessing ? 'Processing…' : 'Enter ↵'}
             </button>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-gray-500">
-            <span className="flex items-center gap-1">
-              <Volume2 size={13} className="text-primary-600" />
-              Audio Beep active on scan
-            </span>
-            <span className="font-mono">
-              Scanned this batch: <strong className="text-gray-900">{scanLog.length}</strong>
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowCameraScanner(true)}
+              className="btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-3.5 border-rose-200 bg-rose-50 text-primary-700 hover:bg-rose-100 font-bold cursor-pointer transition-colors shadow-xs"
+            >
+              <Camera size={14} />
+              <span>Scan with Phone Camera 📱</span>
+            </button>
+
+            <div className="flex items-center gap-3 text-[11px] text-gray-500">
+              <span className="flex items-center gap-1">
+                <Volume2 size={13} className="text-primary-600" />
+                Audio Beep on scan
+              </span>
+              <span className="font-mono">
+                Scanned: <strong className="text-gray-900">{scanLog.length}</strong>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -706,7 +747,7 @@ function BulkOrderScannerModal({ onClose }: { onClose: () => void }) {
           <div className="max-h-52 overflow-y-auto divide-y divide-gray-100 border border-gray-100 rounded-2xl">
             {scanLog.length === 0 ? (
               <div className="py-8 text-center text-xs text-gray-400">
-                Ready to scan. Pull trigger on parcel label or type barcode above.
+                Ready to scan. Pull trigger on parcel label or use phone camera above.
               </div>
             ) : (
               scanLog.map((log, idx) => (
@@ -739,6 +780,17 @@ function BulkOrderScannerModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       </div>
+
+      {/* Phone Camera Barcode Scanner Viewfinder Modal */}
+      {showCameraScanner && (
+        <CameraBarcodeScanner
+          title={`Phone Camera Dispatch (${action})`}
+          subtitle="Align order shipping barcode or parcel tag within frame"
+          onScan={(code) => processScan(code)}
+          onClose={() => setShowCameraScanner(false)}
+          continuous={true}
+        />
+      )}
     </div>
   );
 }
