@@ -109,8 +109,8 @@ export const processTikTokUrl = async (rawUrl: string): Promise<TikTokMeta | nul
 
   const { videoId, username } = parsed;
 
-  // Build canonical embed URL
-  const embedUrl = `https://www.tiktok.com/embed/v2/${videoId}`;
+  // Build canonical embed URL (official TikTok player v1)
+  const embedUrl = `https://www.tiktok.com/player/v1/${videoId}`;
 
   // Fetch metadata (best-effort)
   const meta = await fetchTikTokOEmbed(url);
@@ -130,18 +130,18 @@ export const processTikTokUrl = async (rawUrl: string): Promise<TikTokMeta | nul
  * Build TikTok embed HTML string — used in API response so frontend
  * can render it directly inside a sandboxed iframe.
  *
- * The TikTok embed iframe is the safest & most reliable approach:
- * - Works without TikTok's embed.js script injection
+ * The TikTok player/v1 iframe is the modern, official player approach:
+ * - Works reliably without triggering legacy embed/v2 overload-protection
  * - Can be lazy-loaded
  * - Fully responsive with padding-bottom hack
  */
 export const buildTikTokEmbedHtml = (videoId: string): string => {
   return `
-<div class="tiktok-embed-wrapper" style="position:relative;padding-bottom:177.77%;height:0;overflow:hidden;max-width:325px;margin:auto;">
+<div class="tiktok-embed-wrapper" style="position:relative;padding-bottom:177.77%;height:0;overflow:hidden;max-width:325px;margin:auto;border-radius:16px;">
   <iframe
-    src="https://www.tiktok.com/embed/v2/${videoId}"
+    src="https://www.tiktok.com/player/v1/${videoId}"
     style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;"
-    allow="autoplay;clipboard-write;encrypted-media;picture-in-picture"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
     allowfullscreen
     loading="lazy"
     title="TikTok Product Video"
