@@ -88,12 +88,34 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
     where.status = 'ACTIVE';
   }
 
-  if (category)   where.category  = { slug: category };
-  if (minPrice)   where.price     = { ...where.price, gte: parseFloat(minPrice) };
-  if (maxPrice)   where.price     = { ...where.price, lte: parseFloat(maxPrice) };
-  if (featured)   where.isFeatured   = true;
-  if (newArrival) where.isNewArrival = true;
-  if (inStock)    where.stock        = { gt: 0 };
+  const isFeaturedParam = (req.query.isFeatured ?? req.query.featured) as string | undefined;
+  if (isFeaturedParam === 'true') {
+    where.isFeatured = true;
+  } else if (isFeaturedParam === 'false') {
+    where.isFeatured = false;
+  }
+
+  const isNewArrivalParam = (req.query.isNewArrival ?? req.query.newArrival) as string | undefined;
+  if (isNewArrivalParam === 'true') {
+    where.isNewArrival = true;
+  } else if (isNewArrivalParam === 'false') {
+    where.isNewArrival = false;
+  }
+
+  const inStockParam = req.query.inStock as string | undefined;
+  if (inStockParam === 'true') {
+    where.stock = { gt: 0 };
+  }
+
+  // Category filter: For public storefront (when not admin ALL/EVERYTHING), also enforce category.isActive = true
+  if (status && (status.toUpperCase() === 'ALL' || status.toUpperCase() === 'EVERYTHING')) {
+    if (category) where.category = { slug: category };
+  } else {
+    where.category = { isActive: true, ...(category ? { slug: category } : {}) };
+  }
+
+  if (minPrice) where.price = { ...where.price, gte: parseFloat(minPrice) };
+  if (maxPrice) where.price = { ...where.price, lte: parseFloat(maxPrice) };
 
   if (size || color) {
     where.variants = {

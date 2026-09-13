@@ -6,14 +6,12 @@ import { api } from '@/lib/api';
 import ProductCard from '@/components/product/ProductCard';
 import { ArrowRight, Sparkles, Video } from 'lucide-react';
 
-const CATEGORIES = [
-  { name: 'Kurta & Sets', slug: 'kurta', image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=500' },
-  { name: 'Sarees', slug: 'saree', image: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=500' },
-  { name: 'Lehengas', slug: 'lehenga', image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=500' },
-  { name: 'Western Wear', slug: 'dresses', image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=500' },
-];
-
 export default function HomePage() {
+  const { data: categories = [] } = useQuery<any[]>({
+    queryKey: ['categories'],
+    queryFn: () => api.get('/api/categories').then((r) => r.data.data),
+  });
+
   const { data: featuredData } = useQuery({
     queryKey: ['featured-products'],
     queryFn: () => api.get('/api/products?isFeatured=true&limit=8').then((r) => r.data.data),
@@ -91,14 +89,14 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat: any) => (
             <Link
-              key={cat.slug}
+              key={cat.id}
               href={`/shop?category=${cat.slug}`}
-              className="group relative rounded-2xl overflow-hidden aspect-[4/5] shadow-sm hover:shadow-md transition-all"
+              className="group relative rounded-2xl overflow-hidden aspect-[4/5] shadow-sm hover:shadow-md transition-all bg-gray-100"
             >
               <img
-                src={cat.image}
+                src={cat.imageUrl || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=500'}
                 alt={cat.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
@@ -106,7 +104,7 @@ export default function HomePage() {
               <div className="absolute bottom-4 left-4 right-4 text-white">
                 <h3 className="font-serif font-bold text-base sm:text-lg">{cat.name}</h3>
                 <span className="text-xs text-rose-200 flex items-center gap-1 mt-0.5 group-hover:underline">
-                  View Styles →
+                  {cat._count?.products ? `${cat._count.products} Styles →` : 'View Styles →'}
                 </span>
               </div>
             </Link>

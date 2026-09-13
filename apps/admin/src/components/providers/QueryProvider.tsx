@@ -7,9 +7,9 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
   const [client] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime:   60 * 1000,
+        staleTime:   5 * 1000,
         retry:       1,
-        refetchOnWindowFocus: false,
+        refetchOnWindowFocus: true,
       },
     },
   }));

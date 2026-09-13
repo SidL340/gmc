@@ -1,21 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import ProductCard from '@/components/product/ProductCard';
 import { Filter, Search } from 'lucide-react';
 
 export default function ShopPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const initialCategory = searchParams.get('category') || '';
-  const initialSearch = searchParams.get('q') || '';
+  const categoryParam = searchParams.get('category') || '';
+  const qParam = searchParams.get('q') || '';
   const isNewOnly = searchParams.get('new') === 'true';
 
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
-  const [search, setSearch] = useState(initialSearch);
+  const [selectedCategory, setSelectedCategory] = useState(categoryParam);
+  const [search, setSearch] = useState(qParam);
   const [page, setPage] = useState(1);
+
+  // Sync state whenever URL query parameters change (e.g. clicking categories in Navbar)
+  useEffect(() => {
+    setSelectedCategory(categoryParam);
+    setPage(1);
+  }, [categoryParam]);
+
+  useEffect(() => {
+    setSearch(qParam);
+    setPage(1);
+  }, [qParam]);
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
@@ -35,6 +47,23 @@ export default function ShopPage() {
 
   const products = productsData?.products || [];
   const pagination = productsData?.pagination;
+
+  const handleCategorySelect = (slug: string) => {
+    setSelectedCategory(slug);
+    setPage(1);
+    const params = new URLSearchParams();
+    if (slug) params.set('category', slug);
+    if (search) params.set('q', search);
+    if (isNewOnly) params.set('new', 'true');
+    router.push(`/shop${params.toString() ? '?' + params.toString() : ''}`);
+  };
+
+  const handleResetFilters = () => {
+    setSelectedCategory('');
+    setSearch('');
+    setPage(1);
+    router.push('/shop');
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -74,10 +103,7 @@ export default function ShopPage() {
             </h3>
             <div className="flex flex-wrap lg:flex-col gap-1.5 text-xs font-medium">
               <button
-                onClick={() => {
-                  setSelectedCategory('');
-                  setPage(1);
-                }}
+                onClick={() => handleCategorySelect('')}
                 className={`text-left px-3 py-2 rounded-lg transition-colors ${
                   !selectedCategory
                     ? 'bg-primary-50 text-primary-700 font-bold'
@@ -89,10 +115,7 @@ export default function ShopPage() {
               {categories?.map((cat: any) => (
                 <button
                   key={cat.id}
-                  onClick={() => {
-                    setSelectedCategory(cat.slug);
-                    setPage(1);
-                  }}
+                  onClick={() => handleCategorySelect(cat.slug)}
                   className={`text-left px-3 py-2 rounded-lg transition-colors ${
                     selectedCategory === cat.slug
                       ? 'bg-primary-50 text-primary-700 font-bold'
@@ -127,11 +150,7 @@ export default function ShopPage() {
                 Try selecting another category or clearing your search term.
               </p>
               <button
-                onClick={() => {
-                  setSelectedCategory('');
-                  setSearch('');
-                  setPage(1);
-                }}
+                onClick={handleResetFilters}
                 className="btn-primary inline-flex mt-2 px-5 py-2 text-xs font-semibold rounded-full"
               >
                 Reset Filters

@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import {
   Search, ShoppingBag, Heart, User as UserIcon,
   Menu, X, Sparkles, Facebook, Instagram
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart.store';
 import { useAuthStore } from '@/store/auth.store';
+import { api } from '@/lib/api';
 
 function TikTokIcon({ className = 'w-3 h-3' }: { className?: string }) {
   return (
@@ -22,13 +24,20 @@ export default function Navbar() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const cartCount = useCartStore((s) => s.itemCount);
   const { user, isLoggedIn, logout } = useAuthStore();
 
+  const { data: categories = [] } = useQuery<{ id: string; name: string; slug: string }[]>({
+    queryKey: ['categories'],
+    queryFn: () => api.get('/api/categories').then((r) => r.data.data),
+  });
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setMobileMenuOpen(false);
       router.push(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
@@ -137,27 +146,43 @@ export default function Navbar() {
 
             {/* User / Login */}
             {isLoggedIn() ? (
-              <div className="relative group">
-                <Link
-                  href="/account/orders"
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 p-1.5 pr-3 rounded-full hover:bg-gray-100 text-sm font-medium text-gray-700 transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <span className="hidden lg:inline">{user?.name}</span>
-                </Link>
-                <div className="hidden group-hover:block absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-xl border border-gray-100 py-1 text-sm z-50">
-                  <Link href="/account/orders" className="block px-4 py-2 text-gray-700 hover:bg-rose-50 hover:text-primary-600">
-                    My Orders
-                  </Link>
-                  <button
-                    onClick={logout}
-                    className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
+                </button>
+                {userMenuOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 text-sm z-50 animate-in fade-in zoom-in-95 duration-100"
+                    onMouseLeave={() => setUserMenuOpen(false)}
                   >
-                    Logout
-                  </button>
-                </div>
+                    <div className="px-4 py-2 border-b border-gray-100 text-xs text-gray-500">
+                      Signed in as <span className="font-semibold text-gray-800">{user?.name}</span>
+                    </div>
+                    <Link
+                      href="/account/orders"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="block px-4 py-2 text-gray-700 hover:bg-rose-50 hover:text-primary-600"
+                    >
+                      My Orders
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <Link
@@ -173,29 +198,27 @@ export default function Navbar() {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 text-gray-700 hover:text-primary-600"
+              aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
         </div>
 
-        {/* Secondary Category Navigation */}
-        <nav className="hidden md:flex items-center gap-8 py-2.5 border-t border-gray-100 text-sm font-medium text-gray-600 overflow-x-auto">
-          <Link href="/shop" className="hover:text-primary-600 whitespace-nowrap">
+        {/* Secondary Category Navigation — Dynamically rendered */}
+        <nav className="hidden md:flex items-center gap-6 py-2.5 border-t border-gray-100 text-sm font-medium text-gray-600 overflow-x-auto scrollbar-none">
+          <Link href="/shop" className="hover:text-primary-600 whitespace-nowrap transition-colors">
             All Clothes
           </Link>
-          <Link href="/shop?category=kurta" className="hover:text-primary-600 whitespace-nowrap">
-            Kurtas & Suits
-          </Link>
-          <Link href="/shop?category=saree" className="hover:text-primary-600 whitespace-nowrap">
-            Sarees
-          </Link>
-          <Link href="/shop?category=lehenga" className="hover:text-primary-600 whitespace-nowrap">
-            Lehengas
-          </Link>
-          <Link href="/shop?category=dresses" className="hover:text-primary-600 whitespace-nowrap">
-            Western & Dresses
-          </Link>
+          {categories.map((cat) => (
+            <Link
+              key={cat.id}
+              href={`/shop?category=${cat.slug}`}
+              className="hover:text-primary-600 whitespace-nowrap transition-colors"
+            >
+              {cat.name}
+            </Link>
+          ))}
           <Link href="/shop?new=true" className="text-primary-600 font-semibold flex items-center gap-1 whitespace-nowrap">
             <Sparkles size={14} /> New Arrivals
           </Link>
@@ -207,36 +230,87 @@ export default function Navbar() {
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-3">
+        <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-4 shadow-lg">
+          {/* Mobile Search */}
           <form onSubmit={handleSearch} className="relative">
             <input
               type="text"
-              placeholder="Search clothing..."
+              placeholder="Search Kurtas, Sarees, Dresses..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm rounded-lg bg-gray-50 border border-gray-200"
+              className="w-full pl-10 pr-4 py-2 text-sm rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-400"
             />
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
           </form>
-          <div className="grid grid-cols-2 gap-2 text-sm font-medium text-gray-700 pt-2">
-            <Link href="/shop" onClick={() => setMobileMenuOpen(false)} className="p-2 bg-gray-50 rounded-lg">
+
+          {/* Dynamic Categories Grid */}
+          <div className="grid grid-cols-2 gap-2 text-sm font-medium text-gray-700">
+            <Link
+              href="/shop"
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2.5 bg-gray-50 rounded-lg hover:bg-rose-50 hover:text-primary-600 transition-colors"
+            >
               All Clothes
             </Link>
-            <Link href="/shop?category=kurta" onClick={() => setMobileMenuOpen(false)} className="p-2 bg-gray-50 rounded-lg">
-              Kurtas & Suits
+            {categories.map((cat) => (
+              <Link
+                key={cat.id}
+                href={`/shop?category=${cat.slug}`}
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2.5 bg-gray-50 rounded-lg hover:bg-rose-50 hover:text-primary-600 transition-colors truncate"
+              >
+                {cat.name}
+              </Link>
+            ))}
+            <Link
+              href="/shop?new=true"
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2.5 bg-rose-50 text-primary-600 rounded-lg font-semibold flex items-center gap-1"
+            >
+              <Sparkles size={14} /> New Arrivals
             </Link>
-            <Link href="/shop?category=saree" onClick={() => setMobileMenuOpen(false)} className="p-2 bg-gray-50 rounded-lg">
-              Sarees
+            <Link
+              href="/#tiktok"
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2.5 bg-gray-50 rounded-lg flex items-center gap-1"
+            >
+              <span>🎵</span> TikTok Videos
             </Link>
-            <Link href="/shop?category=dresses" onClick={() => setMobileMenuOpen(false)} className="p-2 bg-gray-50 rounded-lg">
-              Dresses
-            </Link>
-            <Link href="/shop?new=true" onClick={() => setMobileMenuOpen(false)} className="p-2 bg-rose-50 text-primary-600 rounded-lg font-semibold">
-              ✨ New Arrivals
-            </Link>
-            <Link href="/#tiktok" onClick={() => setMobileMenuOpen(false)} className="p-2 bg-gray-50 rounded-lg">
-              🎵 TikTok Videos
-            </Link>
+          </div>
+
+          {/* Mobile Account Section */}
+          <div className="pt-3 border-t border-gray-100">
+            {isLoggedIn() ? (
+              <div className="flex items-center justify-between">
+                <Link
+                  href="/account/orders"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-sm font-medium text-gray-700 hover:text-primary-600 flex items-center gap-2"
+                >
+                  <div className="w-7 h-7 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs">
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <span>My Orders ({user?.name})</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-xs text-red-600 hover:underline px-2 py-1"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full text-center py-2.5 rounded-xl bg-primary-600 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-sm"
+              >
+                <UserIcon size={16} /> Login / Register
+              </Link>
+            )}
           </div>
         </div>
       )}

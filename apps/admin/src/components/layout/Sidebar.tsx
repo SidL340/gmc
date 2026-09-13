@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  LayoutDashboard, Package, ShoppingCart, Users, BarChart3,
+  LayoutDashboard, Package, FolderTree, ShoppingCart, Users, BarChart3,
   Tag, Image, Settings, Printer, Truck, Bell, LogOut,
   ChevronRight, Store,
 } from 'lucide-react';
@@ -20,6 +20,11 @@ const NAV_ITEMS = [
     label: 'Products',
     href:  '/products',
     icon:  Package,
+  },
+  {
+    label: 'Categories',
+    href:  '/categories',
+    icon:  FolderTree,
   },
   {
     label: 'Orders',

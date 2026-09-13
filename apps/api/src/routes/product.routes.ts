@@ -14,8 +14,11 @@ import {
 } from '../controllers/product.controller';
 import { authenticate, requireAdmin } from '../middleware/auth.middleware';
 
+import os from 'os';
+import path from 'path';
+
 const router  = Router();
-const upload  = multer({ dest: '/tmp/uploads/' });
+const upload  = multer({ dest: path.join(os.tmpdir(), 'gmc-uploads') });
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 router.get('/',                      getProducts);
