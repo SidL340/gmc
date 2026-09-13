@@ -94,14 +94,41 @@ function ShopContent() {
         </div>
       </div>
 
+      {/* Mobile Horizontal Category Pills */}
+      <div className="lg:hidden -mx-4 px-4 overflow-x-auto no-scrollbar flex items-center gap-2 pb-2">
+        <button
+          onClick={() => handleCategorySelect('')}
+          className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold transition-all flex-shrink-0 active:scale-95 ${
+            !selectedCategory
+              ? 'bg-primary-600 text-white shadow-sm shadow-rose-200'
+              : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          All Clothes
+        </button>
+        {categories?.map((cat: any) => (
+          <button
+            key={cat.id}
+            onClick={() => handleCategorySelect(cat.slug)}
+            className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold transition-all flex-shrink-0 active:scale-95 ${
+              selectedCategory === cat.slug
+                ? 'bg-primary-600 text-white shadow-sm shadow-rose-200'
+                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Category Sidebar */}
-        <aside className="w-full lg:w-60 flex-shrink-0 space-y-6">
+        {/* Category Sidebar (Desktop only) */}
+        <aside className="hidden lg:block w-60 flex-shrink-0 space-y-6">
           <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2 text-sm">
               <Filter size={15} /> Categories
             </h3>
-            <div className="flex flex-wrap lg:flex-col gap-1.5 text-xs font-medium">
+            <div className="flex flex-col gap-1.5 text-xs font-medium">
               <button
                 onClick={() => handleCategorySelect('')}
                 className={`text-left px-3 py-2 rounded-lg transition-colors ${

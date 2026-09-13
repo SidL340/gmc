@@ -121,21 +121,34 @@ export default function ProductCard({ product }: ProductCardProps) {
           </Link>
         </div>
 
-        <div className="mt-3 flex items-baseline gap-2">
-          {discountPrice ? (
-            <>
-              <span className="text-base font-bold text-gray-900">
-                {formatNPR(discountPrice)}
-              </span>
-              <span className="text-xs text-gray-400 line-through">
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            {discountPrice ? (
+              <>
+                <span className="text-sm sm:text-base font-bold text-gray-900">
+                  {formatNPR(discountPrice)}
+                </span>
+                <span className="text-[11px] text-gray-400 line-through">
+                  {formatNPR(price)}
+                </span>
+              </>
+            ) : (
+              <span className="text-sm sm:text-base font-bold text-gray-900">
                 {formatNPR(price)}
               </span>
-            </>
-          ) : (
-            <span className="text-base font-bold text-gray-900">
-              {formatNPR(price)}
-            </span>
-          )}
+            )}
+          </div>
+
+          {/* Mobile Quick Add Button */}
+          <button
+            onClick={handleQuickAdd}
+            disabled={product.stock <= 0}
+            className="lg:hidden w-8 h-8 rounded-full bg-rose-50 text-primary-600 hover:bg-primary-600 hover:text-white flex items-center justify-center transition-all flex-shrink-0 active:scale-95 disabled:opacity-40"
+            title="Add to Bag"
+            aria-label={`Add ${product.name} to bag`}
+          >
+            <ShoppingBag size={14} />
+          </button>
         </div>
       </div>
     </div>

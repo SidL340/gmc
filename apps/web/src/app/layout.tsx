@@ -25,7 +25,7 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans min-h-screen flex flex-col`}>
         <QueryProvider>
           <Navbar />
-          <main className="flex-1 pb-16 md:pb-0">{children}</main>
+          <main className="flex-1 pb-24 md:pb-0">{children}</main>
           <Footer />
           <MobileBottomNav />
           <ChatBot />
