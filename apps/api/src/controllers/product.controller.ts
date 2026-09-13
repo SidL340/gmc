@@ -63,12 +63,25 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
     featured,
     newArrival,
     inStock,
+    status,
   } = req.query as Record<string, string>;
 
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const take = Math.min(parseInt(limit), 100);
 
-  const where: any = { status: 'ACTIVE' };
+  const where: any = {};
+
+  // Status filtering:
+  // If status is provided:
+  //   'ALL' -> returns all products regardless of status
+  //   'ACTIVE' | 'DRAFT' | etc. -> returns only products with that status
+  // If status is not provided (e.g. public storefront):
+  //   defaults to 'ACTIVE'
+  if (status && status.toUpperCase() !== 'ALL') {
+    where.status = status.toUpperCase();
+  } else if (!status) {
+    where.status = 'ACTIVE';
+  }
 
   if (category)   where.category  = { slug: category };
   if (minPrice)   where.price     = { ...where.price, gte: parseFloat(minPrice) };
@@ -91,6 +104,7 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
     where.OR = [
       { name:        { contains: search, mode: 'insensitive' } },
       { description: { contains: search, mode: 'insensitive' } },
+      { sku:         { contains: search, mode: 'insensitive' } },
       { tags:        { has: search.toLowerCase() } },
     ];
   }
@@ -111,6 +125,8 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
         id:             true,
         name:           true,
         slug:           true,
+        sku:            true,
+        status:         true,
         price:          true,
         discountPrice:  true,
         discountEndsAt: true,
@@ -119,8 +135,9 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
         isNewArrival:   true,
         tiktokUrl:      true,
         tiktokVideoId:  true,
+        createdAt:      true,
         category: { select: { id: true, name: true, slug: true } },
-        images:   { where: { isPrimary: true }, take: 1, select: { url: true, isAiGenerated: true } },
+        images:   { orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }], take: 1, select: { url: true, isAiGenerated: true, isPrimary: true } },
         variants: { select: { size: true, color: true, colorHex: true, stock: true } },
         _count:   { select: { reviews: true } },
       },
@@ -191,6 +208,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
     name, description, shortDesc, categoryId,
     price, costPrice, discountPrice, discountEndsAt,
     stock, lowStockAlert, tags, isFeatured, isNewArrival,
+    status = 'ACTIVE',
     variants, tiktokUrl,
     autoGenerateAiImage = true, // default: auto-generate on creation
   } = req.body;
@@ -235,7 +253,7 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       tags:           Array.isArray(tags) ? tags : [],
       isFeatured:     Boolean(isFeatured),
       isNewArrival:   Boolean(isNewArrival),
-      status:         'DRAFT',
+      status:         (status as any) || 'ACTIVE',
       ...tiktokData,
       variants: variants?.length ? {
         create: variants.map((v: any) => ({

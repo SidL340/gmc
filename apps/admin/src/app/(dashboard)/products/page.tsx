@@ -24,6 +24,7 @@ const productSchema = z.object({
   costPrice:      z.string().optional(),
   discountPrice:  z.string().optional(),
   stock:          z.string().default('0'),
+  status:         z.enum(['ACTIVE', 'DRAFT', 'OUT_OF_STOCK', 'DISCONTINUED']).default('ACTIVE'),
   tiktokUrl:      z.string().optional(),
   isFeatured:     z.boolean().default(false),
   isNewArrival:   z.boolean().default(false),
@@ -91,11 +92,15 @@ function ProductFormModal({
       costPrice:     product.costPrice ? String(product.costPrice) : '',
       discountPrice: product.discountPrice ? String(product.discountPrice) : '',
       stock:         String(product.stock),
+      status:        product.status || 'ACTIVE',
       tiktokUrl:     product.tiktokUrl || '',
       isFeatured:    product.isFeatured,
       isNewArrival:  product.isNewArrival,
       autoGenerateAiImage: true,
-    } : { autoGenerateAiImage: true },
+    } : {
+      status: 'ACTIVE',
+      autoGenerateAiImage: true,
+    },
   });
 
   const tiktokUrl = watch('tiktokUrl');
@@ -109,6 +114,7 @@ function ProductFormModal({
         costPrice:      data.costPrice ? parseFloat(data.costPrice) : undefined,
         discountPrice:  data.discountPrice ? parseFloat(data.discountPrice) : undefined,
         stock:          parseInt(data.stock),
+        status:         data.status || 'ACTIVE',
       };
       if (product) {
         return adminApi.put(`/api/products/${product.id}`, payload);
@@ -156,8 +162,8 @@ function ProductFormModal({
 
         <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="p-5 space-y-5">
           {/* Basic info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="col-span-1 sm:col-span-3">
               <label className="label">Product Name *</label>
               <input {...register('name')} className="input" placeholder="e.g. Red Silk Kurta Set" />
               {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}
@@ -177,6 +183,16 @@ function ProductFormModal({
             <div>
               <label className="label">Stock Quantity</label>
               <input {...register('stock')} type="number" className="input" placeholder="0" />
+            </div>
+
+            <div>
+              <label className="label">Status</label>
+              <select {...register('status')} className="input font-medium text-gray-800">
+                <option value="ACTIVE">Active (Live in Store)</option>
+                <option value="DRAFT">Draft (Hidden)</option>
+                <option value="OUT_OF_STOCK">Out of Stock</option>
+                <option value="DISCONTINUED">Discontinued</option>
+              </select>
             </div>
           </div>
 
@@ -318,16 +334,17 @@ function ProductFormModal({
 
 // ── Products List Page ────────────────────────────────────────────────────────
 export default function ProductsPage() {
-  const [showModal, setShowModal] = useState(false);
-  const [editing,   setEditing]   = useState<any>(null);
-  const [search,    setSearch]    = useState('');
-  const [page,      setPage]      = useState(1);
+  const [showModal,    setShowModal]    = useState(false);
+  const [editing,      setEditing]      = useState<any>(null);
+  const [search,       setSearch]       = useState('');
+  const [page,         setPage]         = useState(1);
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DRAFT' | 'OUT_OF_STOCK' | 'DISCONTINUED'>('ALL');
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['products', page, search],
+    queryKey: ['products', page, search, statusFilter],
     queryFn:  () =>
-      adminApi.get(`/api/products?page=${page}&limit=20&search=${search}&sort=createdAt_desc`)
+      adminApi.get(`/api/products?page=${page}&limit=50&search=${search}&sort=createdAt_desc&status=${statusFilter}`)
         .then((r) => r.data.data),
   });
 
@@ -335,6 +352,18 @@ export default function ProductsPage() {
     mutationFn: (id: string) => adminApi.delete(`/api/products/${id}`),
     onSuccess:  () => { toast.success('Product removed.'); qc.invalidateQueries({ queryKey: ['products'] }); },
     onError:    () => toast.error('Failed to remove product.'),
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      adminApi.put(`/api/products/${id}`, { status }),
+    onSuccess: (_, vars) => {
+      toast.success(`Product status set to ${vars.status}`);
+      qc.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update status');
+    },
   });
 
   const toggleAI = async (productId: string) => {
@@ -347,23 +376,51 @@ export default function ProductsPage() {
     }
   };
 
+  const total = data?.pagination?.total ?? 0;
+  const limit = data?.pagination?.limit ?? 50;
+
   return (
     <div className="space-y-5">
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            placeholder="Search products..."
-            className="input pl-9"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="relative flex-1 max-w-sm">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              placeholder="Search by name, SKU, or tags..."
+              className="input pl-9"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+            {[
+              { label: 'All', value: 'ALL' },
+              { label: 'Active', value: 'ACTIVE' },
+              { label: 'Draft', value: 'DRAFT' },
+              { label: 'Out of Stock', value: 'OUT_OF_STOCK' },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => { setStatusFilter(tab.value as any); setPage(1); }}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  statusFilter === tab.value
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
+
         <button
           onClick={() => { setEditing(null); setShowModal(true); }}
-          className="btn-primary"
+          className="btn-primary shrink-0"
         >
           <Plus size={16} /> Add Product
         </button>
@@ -406,12 +463,12 @@ export default function ProductsPage() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900 line-clamp-1">{p.name}</p>
-                        <p className="text-xs text-gray-400">{p.sku}</p>
+                        <p className="text-xs text-gray-400 font-mono">{p.sku}</p>
                       </div>
                     </div>
                   </td>
                   {/* Category */}
-                  <td className="px-4 py-3 text-gray-600">{p.category?.name}</td>
+                  <td className="px-4 py-3 text-gray-600">{p.category?.name || '—'}</td>
                   {/* Price */}
                   <td className="px-4 py-3">
                     {p.discountPrice ? (
@@ -432,16 +489,45 @@ export default function ProductsPage() {
                   {/* TikTok */}
                   <td className="px-4 py-3">
                     {p.tiktokVideoId ? (
-                      <span className="text-lg" title="Has TikTok video">🎵</span>
+                      <a
+                        href={p.tiktokUrl || `https://www.tiktok.com/@gmcollectionhouse/video/${p.tiktokVideoId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-pink-50 text-pink-600 font-medium hover:bg-pink-100"
+                        title="View TikTok Video"
+                      >
+                        <span>🎵</span> Video
+                      </a>
                     ) : (
                       <span className="text-gray-300">—</span>
                     )}
                   </td>
-                  {/* Status */}
+                  {/* Status Dropdown / Quick Toggle */}
                   <td className="px-4 py-3">
-                    <span className={`badge ${p.status === 'ACTIVE' ? 'badge-success' : p.status === 'DRAFT' ? 'badge-warning' : 'badge-gray'}`}>
-                      {p.status}
-                    </span>
+                    <select
+                      value={p.status}
+                      disabled={updateStatusMutation.isPending}
+                      onChange={(e) => updateStatusMutation.mutate({ id: p.id, status: e.target.value })}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full border cursor-pointer transition-colors appearance-none pr-6 bg-no-repeat bg-[right_0.4rem_center] ${
+                        p.status === 'ACTIVE'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : p.status === 'DRAFT'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                          : p.status === 'OUT_OF_STOCK'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                        backgroundSize: '10px',
+                      }}
+                      title="Click to change product status"
+                    >
+                      <option value="ACTIVE">ACTIVE</option>
+                      <option value="DRAFT">DRAFT</option>
+                      <option value="OUT_OF_STOCK">OUT OF STOCK</option>
+                      <option value="DISCONTINUED">DISCONTINUED</option>
+                    </select>
                   </td>
                   {/* Actions */}
                   <td className="px-4 py-3">
@@ -469,7 +555,7 @@ export default function ProductsPage() {
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm('Remove this product from the store?')) {
+                          if (confirm(`Remove "${p.name}" from the store?`)) {
                             deleteMutation.mutate(p.id);
                           }
                         }}
@@ -482,10 +568,10 @@ export default function ProductsPage() {
                   </td>
                 </tr>
               ))}
-              {data?.products?.length === 0 && (
+              {!isLoading && data?.products?.length === 0 && (
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-gray-400">
-                    No products found. Add your first product!
+                    No products found {statusFilter !== 'ALL' ? `with status "${statusFilter}"` : ''}.
                   </td>
                 </tr>
               )}
@@ -494,10 +580,10 @@ export default function ProductsPage() {
         </div>
 
         {/* Pagination */}
-        {data?.pagination && (
+        {data?.pagination && total > 0 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-              Showing {(page - 1) * 20 + 1}–{Math.min(page * 20, data.pagination.total)} of {data.pagination.total} products
+              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total} products
             </p>
             <div className="flex gap-2">
               <button
@@ -509,7 +595,7 @@ export default function ProductsPage() {
               </button>
               <button
                 onClick={() => setPage((p) => p + 1)}
-                disabled={page >= data.pagination.totalPages}
+                disabled={page >= (data.pagination.totalPages || 1)}
                 className="btn-secondary text-xs py-1.5 px-3 disabled:opacity-40"
               >
                 Next →
