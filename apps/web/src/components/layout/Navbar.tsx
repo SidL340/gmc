@@ -5,10 +5,18 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Search, ShoppingBag, Heart, User as UserIcon,
-  Menu, X, Sparkles
+  Menu, X, Sparkles, Facebook, Instagram
 } from 'lucide-react';
 import { useCartStore } from '@/store/cart.store';
 import { useAuthStore } from '@/store/auth.store';
+
+function TikTokIcon({ className = 'w-3 h-3' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.86 4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-.04-4.52z"/>
+    </svg>
+  );
+}
 
 export default function Navbar() {
   const router = useRouter();
@@ -28,8 +36,49 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-rose-100 shadow-sm">
       {/* Top announcement bar */}
-      <div className="bg-gradient-to-r from-primary-600 via-primary-500 to-rose-600 text-white text-xs py-1.5 px-4 text-center font-medium">
-        ✨ Free Delivery All Over Nepal On Orders Over Rs. 2000 | COD, FonePay & NepalPay Available
+      <div className="bg-gradient-to-r from-primary-700 via-primary-600 to-rose-700 text-white text-xs py-1.5 px-4 font-medium">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="hidden sm:flex items-center gap-2 text-[11px] text-rose-100">
+            <span>✨ Free Delivery Over Rs. 2000</span>
+            <span>•</span>
+            <span>COD, FonePay &amp; NepalPay</span>
+          </div>
+          <div className="mx-auto sm:mx-0 text-center text-xs font-medium">
+            GM Collection House · House of Women's Fashion
+          </div>
+          <div className="hidden md:flex items-center gap-3 text-white/90">
+            <a
+              href="https://www.facebook.com/gmcollectionhouse/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors flex items-center gap-1 text-[11px]"
+              title="Facebook"
+            >
+              <Facebook size={12} />
+              <span className="hidden lg:inline">Facebook</span>
+            </a>
+            <a
+              href="https://www.instagram.com/gmcollectionhouse"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors flex items-center gap-1 text-[11px]"
+              title="Instagram"
+            >
+              <Instagram size={12} />
+              <span className="hidden lg:inline">Instagram</span>
+            </a>
+            <a
+              href="https://www.tiktok.com/@gmcollectionhouse"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors flex items-center gap-1 text-[11px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded-full"
+              title="TikTok"
+            >
+              <TikTokIcon className="w-3 h-3" />
+              <span>@gmcollectionhouse</span>
+            </a>
+          </div>
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

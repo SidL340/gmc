@@ -127,12 +127,24 @@ export default function HomePage() {
                 Watch how our clothes fit, drape, and shine on live videos
               </p>
             </div>
-            <Link
-              href="/shop"
-              className="text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 border border-rose-500/30 px-4 py-2 rounded-full"
-            >
-              Shop All Styles →
-            </Link>
+
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <a
+                href="https://www.tiktok.com/@gmcollectionhouse"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs bg-rose-600 hover:bg-rose-700 text-white font-semibold flex items-center gap-1.5 px-4 py-2 rounded-full transition-colors shadow-sm"
+              >
+                <span>Follow @gmcollectionhouse</span>
+                <span className="text-xs">↗</span>
+              </a>
+              <Link
+                href="/shop"
+                className="text-xs text-rose-300 hover:text-white font-semibold flex items-center gap-1 border border-rose-500/30 px-4 py-2 rounded-full transition-colors"
+              >
+                Shop All Styles →
+              </Link>
+            </div>
           </div>
 
           {tiktokProducts.length > 0 ? (

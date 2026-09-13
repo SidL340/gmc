@@ -30,6 +30,9 @@ async function main() {
     { key: 'storeHours', value: 'Sunday - Friday: 10:00 AM - 8:00 PM' },
     { key: 'freeShippingThreshold', value: '2000' },
     { key: 'shippingCharge', value: '150' },
+    { key: 'socialFacebook', value: 'https://www.facebook.com/gmcollectionhouse/' },
+    { key: 'socialInstagram', value: 'https://www.instagram.com/gmcollectionhouse' },
+    { key: 'socialTikTok', value: 'https://www.tiktok.com/@gmcollectionhouse' },
   ];
 
   for (const s of settings) {

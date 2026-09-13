@@ -1,5 +1,13 @@
 import Link from 'next/link';
-import { Phone, Mail, MapPin, Truck, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Phone, Mail, MapPin, Truck, ShieldCheck, RefreshCw, Facebook, Instagram } from 'lucide-react';
+
+function TikTokIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.86 4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-.04-4.52z"/>
+    </svg>
+  );
+}
 
 export default function Footer() {
   return (
@@ -53,6 +61,38 @@ export default function Footer() {
             <p className="text-sm text-gray-400 leading-relaxed mb-4">
               Nepal's premier clothing store specializing in exquisite ladies' fashion — Kurta sets, Sarees, Lehengas, and contemporary Western wear.
             </p>
+
+            {/* Social Media Links */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <a
+                href="https://www.facebook.com/gmcollectionhouse/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-gray-800 hover:bg-[#1877F2] text-gray-300 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                title="Follow us on Facebook"
+              >
+                <Facebook size={16} />
+              </a>
+              <a
+                href="https://www.instagram.com/gmcollectionhouse"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-9 h-9 rounded-full bg-gray-800 hover:bg-gradient-to-tr hover:from-amber-500 hover:via-pink-600 hover:to-purple-600 text-gray-300 hover:text-white flex items-center justify-center transition-all shadow-sm"
+                title="Follow us on Instagram"
+              >
+                <Instagram size={16} />
+              </a>
+              <a
+                href="https://www.tiktok.com/@gmcollectionhouse"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 h-9 rounded-full bg-gray-800 hover:bg-black hover:border hover:border-gray-600 text-gray-300 hover:text-white flex items-center gap-1.5 transition-all text-xs font-medium shadow-sm"
+                title="Watch on TikTok"
+              >
+                <TikTokIcon className="w-3.5 h-3.5" />
+                <span>TikTok</span>
+              </a>
+            </div>
           </div>
 
           {/* Quick Links */}
