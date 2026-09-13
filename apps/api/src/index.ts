@@ -3,6 +3,7 @@ import 'express-async-errors';
 import app from './app';
 import { logger } from './config/logger';
 import { prisma } from './config/db';
+import { autoBootstrapDatabase } from './services/seed.service';
 
 const PORT = process.env.PORT || 5000;
 
@@ -11,6 +12,9 @@ async function main() {
     // Test DB connection
     await prisma.$connect();
     logger.info('✅ Database connected');
+
+    // Auto-bootstrap base catalog & admin if brand new cloud DB
+    await autoBootstrapDatabase();
 
     app.listen(PORT, () => {
       logger.info(`🚀 GM Collection House API running on port ${PORT}`);
