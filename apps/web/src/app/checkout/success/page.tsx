@@ -1,10 +1,11 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, QrCode, ArrowRight, Package } from 'lucide-react';
+import { CheckCircle2, QrCode, ArrowRight, Package, Loader2 } from 'lucide-react';
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -66,3 +67,18 @@ export default function CheckoutSuccessPage() {
     </div>
   );
 }
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <Loader2 className="animate-spin text-primary-600" size={32} />
+        </div>
+      }
+    >
+      <CheckoutSuccessContent />
+    </Suspense>
+  );
+}
+

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -12,16 +13,17 @@ export default function CustomerOrdersPage() {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
 
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      router.push('/login?redirect=/account/orders');
+    }
+  }, [isLoggedIn, router]);
+
   const { data: ordersData, isLoading } = useQuery({
     queryKey: ['customer-orders'],
     queryFn: () => api.get('/api/orders').then((r) => r.data.data),
-    enabled: isLoggedIn(),
+    enabled: typeof window !== 'undefined' && isLoggedIn(),
   });
-
-  if (!isLoggedIn()) {
-    router.push('/login?redirect=/account/orders');
-    return null;
-  }
 
   const orders = ordersData?.orders || [];
 

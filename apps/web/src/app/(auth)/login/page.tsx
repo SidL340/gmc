@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
@@ -30,7 +30,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/';
@@ -368,3 +368,18 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[75vh] flex items-center justify-center">
+          <Loader2 className="animate-spin text-primary-600" size={32} />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
+  );
+}
+

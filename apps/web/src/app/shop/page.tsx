@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import ProductCard from '@/components/product/ProductCard';
-import { Filter, Search } from 'lucide-react';
+import { Filter, Search, Loader2 } from 'lucide-react';
 
-export default function ShopPage() {
+function ShopContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category') || '';
@@ -185,3 +185,18 @@ export default function ShopPage() {
     </div>
   );
 }
+
+export default function ShopPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <Loader2 className="animate-spin text-primary-600" size={32} />
+        </div>
+      }
+    >
+      <ShopContent />
+    </Suspense>
+  );
+}
+
