@@ -115,12 +115,12 @@ const ORDER_STATUSES = [
 ];
 
 const STATUS_ACTIONS: Record<string, { next: string; label: string; icon: React.ElementType }[]> = {
-  PENDING:   [{ next: 'CONFIRMED',  label: 'Confirm Order', icon: CheckCircle }],
-  CONFIRMED: [{ next: 'PROCESSING', label: 'Start Processing', icon: Package }],
-  PROCESSING:[{ next: 'PACKED',     label: 'Mark as Packed', icon: Package }],
-  PACKED:    [{ next: 'SHIPPED',    label: 'Ship (Push to NCM)', icon: Truck }],
-  SHIPPED:   [{ next: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', icon: Truck }],
-  OUT_FOR_DELIVERY: [{ next: 'DELIVERED', label: 'Mark Delivered', icon: CheckCircle }],
+  PENDING:   [{ next: 'CONFIRMED',  label: '✓ Confirm Order', icon: CheckCircle }],
+  CONFIRMED: [{ next: 'PROCESSING', label: '📦 Start Packing Order', icon: Package }],
+  PROCESSING:[{ next: 'PACKED',     label: '🚚 Mark Packed & Request Courier Pickup', icon: Truck }],
+  PACKED:    [{ next: 'SHIPPED',    label: '🚀 Handover to Courier (Mark Shipped)', icon: Truck }],
+  SHIPPED:   [{ next: 'OUT_FOR_DELIVERY', label: '📍 Out for Delivery', icon: Truck }],
+  OUT_FOR_DELIVERY: [{ next: 'DELIVERED', label: '✅ Mark Delivered (COD Collected)', icon: CheckCircle }],
 };
 
 function OrderDetailSlider({ order, onClose }: { order: any; onClose: () => void }) {
