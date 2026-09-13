@@ -121,3 +121,69 @@ export const updateShipmentStatus = async (req: Request, res: Response) => {
 
   res.json({ success: true, data: shipment });
 };
+
+export const createNCMPickupTicket = async (req: AuthRequest, res: Response) => {
+  const { packetCount = 1, branch, note } = req.body;
+  const result = await deliveryService.createPickupTicket({
+    packetCount: Number(packetCount),
+    branch,
+    phone: '9851107555',
+    address: 'GM Collection House, Tinkune, Kathmandu',
+    note,
+  });
+  res.json({ success: result.success, data: result });
+};
+
+export const getCustomerRating = async (req: AuthRequest, res: Response) => {
+  const { phone } = req.query;
+  if (!phone) throw new AppError('Phone parameter is required', 400);
+
+  const rating = await deliveryService.getCustomerRatings(String(phone));
+  res.json({ success: true, data: rating });
+};
+
+export const handleNCMWebhook = async (req: Request, res: Response) => {
+  const { event, order_id, status } = req.body;
+
+  if (order_id && status) {
+    const shipment = await prisma.shipment.findFirst({
+      where: {
+        OR: [
+          { ncmShipmentId: String(order_id) },
+          { trackingNumber: String(order_id) },
+        ],
+      },
+    });
+
+    if (shipment) {
+      let mappedStatus: ShipmentStatus = ShipmentStatus.IN_TRANSIT;
+      const lower = String(status).toLowerCase();
+      if (lower.includes('deliver')) mappedStatus = ShipmentStatus.DELIVERED;
+      else if (lower.includes('pickup') || lower.includes('picked')) mappedStatus = ShipmentStatus.PICKED_UP;
+      else if (lower.includes('cancel') || lower.includes('fail')) mappedStatus = ShipmentStatus.FAILED_DELIVERY;
+      else if (lower.includes('return')) mappedStatus = ShipmentStatus.RETURNED;
+
+      await prisma.shipment.update({
+        where: { id: shipment.id },
+        data: {
+          status: mappedStatus,
+          statusHistory: {
+            create: {
+              status: mappedStatus,
+              description: `Status updated via NCM Webhook: ${status}`,
+            },
+          },
+        },
+      });
+
+      if (mappedStatus === ShipmentStatus.DELIVERED) {
+        await prisma.order.update({
+          where: { id: shipment.orderId },
+          data: { status: 'DELIVERED' },
+        });
+      }
+    }
+  }
+
+  res.status(200).send('OK');
+};

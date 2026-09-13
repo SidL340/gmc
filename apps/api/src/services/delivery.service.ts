@@ -453,7 +453,243 @@ class DeliveryService {
   }
 
   /**
-   * Register webhook URL on NepalCanMove
+   * Fetch branches assigned specifically to this vendor (Page 14 & 15)
+   */
+  async getVendorAssignedBranches(): Promise<string[]> {
+    await this.refreshDynamicSettings();
+    if (!this.isConfigured) return [this.defaultFromBranch];
+
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/v2/vendor/assigned-branches`, {
+        headers: this.authHeaders,
+        timeout: 8000,
+      });
+      if (Array.isArray(response.data)) {
+        return response.data;
+      }
+      return [this.defaultFromBranch];
+    } catch (err: any) {
+      logger.warn('Failed to fetch NCM vendor assigned branches', { error: err.message });
+      return [this.defaultFromBranch];
+    }
+  }
+
+  /**
+   * Create an official pickup ticket requesting courier collection (Page 11-12)
+   */
+  async createPickupTicket(params: {
+    packetCount: number;
+    branch?: string;
+    phone?: string;
+    address?: string;
+    note?: string;
+  }): Promise<{ success: boolean; ticketId?: number; message: string }> {
+    await this.refreshDynamicSettings();
+    if (!this.isConfigured) {
+      return { success: true, ticketId: Math.floor(Math.random() * 1000) + 100, message: 'Pickup ticket created (Demo Mode)' };
+    }
+
+    const branch = (params.branch || this.defaultFromBranch).trim();
+    const phone = params.phone || '9851107555';
+    const address = params.address || 'GM Collection House, Tinkune, Kathmandu';
+    const message = `${phone}, No. of Packets: ${params.packetCount || 1}, Address: ${address}${params.note ? ` - ${params.note}` : ''}`.slice(0, 500);
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/api/v2/vendor/ticket/create/new`,
+        {
+          ticket_type: 'Pickup',
+          message,
+          branch,
+        },
+        { headers: this.authHeaders, timeout: 10000 }
+      );
+      return {
+        success: true,
+        ticketId: response.data?.ticket,
+        message: response.data?.message || 'Pickup ticket created successfully',
+      };
+    } catch (err: any) {
+      logger.error('Failed to create NCM pickup ticket', { error: err.response?.data || err.message });
+      return {
+        success: false,
+        message: err.response?.data?.message || err.message || 'Failed to create pickup ticket',
+      };
+    }
+  }
+
+  /**
+   * Create COD transfer ticket requesting bank payout remittance (Page 12)
+   */
+  async createCODPayoutTicket(params: {
+    bankName: string;
+    bankAccountName: string;
+    bankAccountNumber: string;
+  }): Promise<{ success: boolean; ticketId?: number; message: string }> {
+    await this.refreshDynamicSettings();
+    if (!this.isConfigured) {
+      return { success: true, ticketId: 124, message: 'COD transfer ticket created (Demo Mode)' };
+    }
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/api/v2/vendor/ticket/cod/create`,
+        params,
+        { headers: this.authHeaders, timeout: 10000 }
+      );
+      return {
+        success: true,
+        ticketId: response.data?.ticket,
+        message: response.data?.message || 'COD transfer ticket created successfully',
+      };
+    } catch (err: any) {
+      logger.error('Failed to create NCM COD payout ticket', { error: err.response?.data || err.message });
+      return {
+        success: false,
+        message: err.response?.data?.message || err.message || 'Failed to create COD ticket',
+      };
+    }
+  }
+
+  /**
+   * Check customer delivery trust score and historical return stats by phone (Page 27)
+   */
+  async getCustomerRatings(phone: string): Promise<{
+    phone: string;
+    totalOrders: number;
+    totalDelivered: number;
+    totalReturned: number;
+    deliveryRate: number;
+  } | null> {
+    await this.refreshDynamicSettings();
+    const cleanPhone = phone.replace(/[^0-9]/g, '').slice(-10);
+    if (!this.isConfigured || cleanPhone.length < 10) return null;
+
+    try {
+      const response = await axios.get(`${this.baseUrl}/api/v2/vendor/ratings`, {
+        params: { phone: cleanPhone },
+        headers: this.authHeaders,
+        timeout: 8000,
+      });
+      const data = response.data;
+      if (data && typeof data.total_orders === 'number') {
+        const total = data.total_orders;
+        const delivered = data.total_delivered || 0;
+        const returned = data.total_returned || 0;
+        const rate = total > 0 ? Math.round((delivered / total) * 100) : 100;
+        return {
+          phone: cleanPhone,
+          totalOrders: total,
+          totalDelivered: delivered,
+          totalReturned: returned,
+          deliveryRate: rate,
+        };
+      }
+      return null;
+    } catch (err: any) {
+      logger.warn(`Failed to fetch NCM ratings for phone ${cleanPhone}`, { error: err.message });
+      return null;
+    }
+  }
+
+  /**
+   * Mark order for return process on NepalCanMove (Page 15-16)
+   */
+  async markOrderReturn(orderId: number | string, comment?: string): Promise<{ success: boolean; message: string }> {
+    await this.refreshDynamicSettings();
+    if (!this.isConfigured) return { success: true, message: 'Order marked for return (Demo)' };
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/api/v2/vendor/order/return`,
+        { pk: Number(orderId), comment: comment || 'Customer requested return' },
+        { headers: this.authHeaders, timeout: 10000 }
+      );
+      return {
+        success: true,
+        message: response.data?.message || 'Order marked for return successfully',
+      };
+    } catch (err: any) {
+      logger.error('Failed to mark order for return on NCM', { error: err.response?.data || err.message });
+      return {
+        success: false,
+        message: err.response?.data?.message || 'Failed to mark order for return',
+      };
+    }
+  }
+
+  /**
+   * Create exchange order for returning item and delivering replacement (Page 17)
+   */
+  async createExchangeOrder(orderId: number | string): Promise<{ success: boolean; custOrder?: number; venOrder?: number; message: string }> {
+    await this.refreshDynamicSettings();
+    if (!this.isConfigured) {
+      return { success: true, custOrder: 9001, venOrder: 9002, message: 'Exchange orders created (Demo)' };
+    }
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/api/v2/vendor/order/exchange-create`,
+        { pk: Number(orderId) },
+        { headers: this.authHeaders, timeout: 10000 }
+      );
+      return {
+        success: true,
+        custOrder: response.data?.cust_order,
+        venOrder: response.data?.ven_order,
+        message: response.data?.message || 'Exchange orders created',
+      };
+    } catch (err: any) {
+      logger.error('Failed to create exchange order on NCM', { error: err.response?.data || err.message });
+      return {
+        success: false,
+        message: err.response?.data?.message || 'Failed to create exchange order',
+      };
+    }
+  }
+
+  /**
+   * Add comment to an order in NCM (Page 9)
+   */
+  async addOrderComment(orderId: number | string, comment: string): Promise<boolean> {
+    await this.refreshDynamicSettings();
+    if (!this.isConfigured) return true;
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/api/v1/comment`,
+        { orderid: String(orderId), comments: comment },
+        { headers: this.authHeaders, timeout: 8000 }
+      );
+      return response.status === 200;
+    } catch (err: any) {
+      logger.error(`Failed to add comment to NCM order ${orderId}`, { error: err.message });
+      return false;
+    }
+  }
+
+  /**
+   * Bulk retrieve status for multiple NCM order IDs in a single call (Page 10)
+   */
+  async getBulkStatuses(orderIds: number[]): Promise<Record<string, string>> {
+    await this.refreshDynamicSettings();
+    if (!this.isConfigured || orderIds.length === 0) return {};
+
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/api/v1/orders/statuses`,
+        { orders: orderIds },
+        { headers: this.authHeaders, timeout: 10000 }
+      );
+      return response.data?.result || {};
+    } catch (err: any) {
+      logger.error('Failed to fetch bulk statuses from NCM', { error: err.message });
+      return {};
+    }
+  }
+
+  /**
+   * Register webhook URL on NepalCanMove (Page 19-21)
    */
   async registerWebhook(webhookUrl: string): Promise<boolean> {
     if (!this.isConfigured) return false;

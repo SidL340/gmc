@@ -17,6 +17,7 @@ export default function DeliveryManagementPage() {
   const [calcLoading, setCalcLoading] = useState(false);
   const [labelOrderId, setLabelOrderId] = useState<string | null>(null);
   const [showVendorModal, setShowVendorModal] = useState(false);
+  const [requestingPickup, setRequestingPickup] = useState(false);
 
   // Fetch NCM config (demo vs production)
   const { data: ncmConfig } = useQuery({
@@ -36,6 +37,29 @@ export default function DeliveryManagementPage() {
     queryFn: () => adminApi.get('/api/orders?limit=50').then((r) => r.data.data),
     refetchInterval: 30000,
   });
+
+  const readyToShipOrders = ordersData?.orders?.filter((o: any) => o.status === 'PACKED') || [];
+
+  const handleRequestPickup = async () => {
+    const count = readyToShipOrders.length || 1;
+    setRequestingPickup(true);
+    try {
+      const res = await adminApi.post('/api/shipments/pickup-ticket', {
+        packetCount: count,
+        branch: ncmConfig?.defaultFromBranch || 'TINKUNE',
+        note: `${count} boutique parcel(s) ready for pickup at GM Collection House`,
+      });
+      if (res.data?.data?.ticketId) {
+        toast.success(`NCM Pickup Ticket #${res.data.data.ticketId} created! Rider requested for store pickup.`);
+      } else {
+        toast.success(res.data?.data?.message || 'Pickup requested with NepalCanMove!');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to request pickup.');
+    } finally {
+      setRequestingPickup(false);
+    }
+  };
 
   const calculateRate = async () => {
     setCalcLoading(true);
@@ -78,6 +102,16 @@ export default function DeliveryManagementPage() {
               Live Production
             </span>
           )}
+          <button
+            onClick={handleRequestPickup}
+            disabled={requestingPickup}
+            className="btn-secondary text-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <PackageCheck size={13} className={requestingPickup ? 'animate-spin' : 'text-primary-600'} />
+            {requestingPickup
+              ? 'Requesting...'
+              : `Request Rider Pickup ${readyToShipOrders.length > 0 ? `(${readyToShipOrders.length} Ready)` : ''}`}
+          </button>
           <button
             onClick={() => setShowVendorModal(true)}
             className="btn-primary text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
