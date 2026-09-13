@@ -17,6 +17,7 @@ export const searchPOSProducts = async (req: Request, res: Response) => {
         { barcode: query },
         { sku: { contains: query, mode: 'insensitive' } },
         { name: { contains: query, mode: 'insensitive' } },
+        { variants: { some: { sku: { contains: query, mode: 'insensitive' } } } },
       ],
     },
     include: {

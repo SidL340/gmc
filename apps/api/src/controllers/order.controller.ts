@@ -5,6 +5,7 @@ import { AppError } from '../middleware/errorHandler';
 import { initiateFonePay, initiateNepalPay, initiateCOD } from '../services/payment.service';
 import { deliveryService } from '../services/delivery.service';
 import { OrderStatus, PaymentMethod, PaymentStatus, ShipmentStatus } from '@prisma/client';
+import bwipjs from 'bwip-js';
 
 export const createOrder = async (req: AuthRequest, res: Response) => {
   const {
@@ -445,4 +446,160 @@ export const getOrderTracking = async (req: Request, res: Response) => {
   }
 
   res.json({ success: true, data: shipment });
+};
+
+export const getOrderBarcode = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+
+  let order = await prisma.order.findUnique({
+    where: { id },
+    select: { id: true, orderNumber: true },
+  });
+
+  if (!order) {
+    order = await prisma.order.findUnique({
+      where: { orderNumber: id },
+      select: { id: true, orderNumber: true },
+    });
+  }
+
+  if (!order) throw new AppError('Order not found.', 404);
+
+  const png = await bwipjs.toBuffer({
+    bcid:        'code128',
+    text:        order.orderNumber,
+    scale:       3,
+    height:      10,
+    includetext: true,
+    textxalign:  'center',
+  });
+
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Content-Disposition', `inline; filename="${order.orderNumber}-barcode.png"`);
+  res.send(png);
+};
+
+export const scanOrderAction = async (req: AuthRequest, res: Response) => {
+  const { code, action = 'PACK', note } = req.body;
+  if (!code) throw new AppError('Barcode or Order Number required', 400);
+
+  const queryCode = String(code).trim();
+
+  // Find order by orderNumber, id, or shipment trackingNumber
+  const order = await prisma.order.findFirst({
+    where: {
+      OR: [
+        { orderNumber: { equals: queryCode, mode: 'insensitive' } },
+        { id: queryCode },
+        { shipment: { trackingNumber: { equals: queryCode, mode: 'insensitive' } } },
+        { shipment: { ncmShipmentId: queryCode } },
+      ],
+    },
+    include: {
+      items: true,
+      shippingAddress: true,
+      payment: true,
+      shipment: true,
+      user: { select: { id: true, name: true, phone: true } },
+    },
+  });
+
+  if (!order) {
+    throw new AppError(`No order found matching barcode "${queryCode}"`, 404);
+  }
+
+  let newStatus: OrderStatus = order.status;
+  let message = '';
+  let alreadyProcessed = false;
+
+  if (action === 'PACK') {
+    if (['PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status)) {
+      alreadyProcessed = true;
+      message = `Order ${order.orderNumber} is already ${order.status}`;
+    } else {
+      newStatus = OrderStatus.PACKED;
+      message = `Order ${order.orderNumber} marked as PACKED & Ready for pickup`;
+    }
+  } else if (action === 'SHIP') {
+    if (['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status)) {
+      alreadyProcessed = true;
+      message = `Order ${order.orderNumber} was already SHIPPED`;
+    } else {
+      newStatus = OrderStatus.SHIPPED;
+      message = `Order ${order.orderNumber} marked as SHIPPED (Handed over to courier)`;
+    }
+  } else if (action === 'DELIVER') {
+    newStatus = OrderStatus.DELIVERED;
+    message = `Order ${order.orderNumber} marked as DELIVERED`;
+  } else {
+    // action === 'VERIFY'
+    message = `Order ${order.orderNumber} verified: ${order.status}`;
+  }
+
+  // If status changed, update and trigger NCM dispatch if moving to PACKED
+  if (!alreadyProcessed && newStatus !== order.status) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: newStatus,
+        statusHistory: {
+          create: {
+            status: newStatus,
+            note: note || `Stage updated via Barcode Scanner to ${newStatus}`,
+            createdBy: req.user!.name,
+          },
+        },
+      },
+    });
+
+    if (newStatus === OrderStatus.PACKED && order.shippingAddress && !order.shipment) {
+      const isCod = order.payment?.method === PaymentMethod.COD;
+      const shipmentResult = await deliveryService.createShipment({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        recipientName: order.shippingAddress.fullName,
+        recipientPhone: order.shippingAddress.phone,
+        recipientAddress: `${order.shippingAddress.streetAddress}, Ward ${order.shippingAddress.ward}`,
+        recipientDistrict: order.shippingAddress.district,
+        recipientMunicipality: order.shippingAddress.municipality,
+        recipientProvince: order.shippingAddress.province,
+        codAmount: isCod ? Number(order.total) : 0,
+        itemDescription: `GM Collection House Clothing - ${order.items.length} items`,
+      });
+
+      await prisma.shipment.create({
+        data: {
+          orderId: order.id,
+          ncmShipmentId: shipmentResult.ncmShipmentId,
+          trackingNumber: shipmentResult.trackingNumber,
+          trackingUrl: shipmentResult.trackingUrl,
+          status: ShipmentStatus.PENDING,
+          statusHistory: {
+            create: {
+              status: ShipmentStatus.PENDING,
+              description: 'Shipment created via Barcode Scan and ready for pickup',
+            },
+          },
+        },
+      });
+    }
+  }
+
+  res.json({
+    success: true,
+    alreadyProcessed,
+    message,
+    action,
+    order: {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: newStatus,
+      customerName: order.shippingAddress?.fullName || order.user?.name || 'Customer',
+      customerPhone: order.shippingAddress?.phone || order.user?.phone,
+      destination: `${order.shippingAddress?.municipality || ''}, ${order.shippingAddress?.district || ''}`,
+      itemsCount: order.items.length,
+      total: order.total,
+      trackingNumber: order.shipment?.trackingNumber,
+    },
+  });
 };

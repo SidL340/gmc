@@ -1,14 +1,44 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Search, Plus, Minus, Trash2, Printer, QrCode,
   CreditCard, Banknote, Smartphone, X, Check,
+  Barcode, Volume2, Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
 import { formatNPR } from '@/lib/utils';
+
+// Web Audio API feedback for physical barcode scanner guns
+function playPOSBeep(success = true) {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    if (success) {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(980, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1318, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.1);
+    } else {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.22);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.22);
+    }
+  } catch {
+    // AudioContext unavailable or blocked by browser policy
+  }
+}
 
 interface POSItem {
   productId: string;
@@ -151,25 +181,141 @@ export default function POSPage() {
     onError: (err: any) => toast.error(err.response?.data?.message || 'Sale failed.'),
   });
 
+  // Global shortcut to focus barcode scanner input
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === '/' || e.key === 'F2') && document.activeElement !== searchRef.current) {
+        const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
+        if (tag !== 'input' && tag !== 'textarea') {
+          e.preventDefault();
+          searchRef.current?.focus();
+          searchRef.current?.select();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  // Handle physical scanner gun Enter key & instant auto-add
+  const handleSearchKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const query = search.trim();
+      if (!query) return;
+
+      let matches = searchResults;
+      if (!matches || matches.length === 0) {
+        try {
+          const res = await adminApi.get(`/api/pos/products?q=${encodeURIComponent(query)}`);
+          matches = res.data?.data || [];
+        } catch {
+          matches = [];
+        }
+      }
+
+      if (!matches || matches.length === 0) {
+        playPOSBeep(false);
+        toast.error(`No product found for barcode/SKU: "${query}"`);
+        return;
+      }
+
+      // 1. Exact variant SKU match
+      let matchedProduct: any = null;
+      let matchedVariant: any = null;
+
+      for (const prod of matches) {
+        if (prod.variants?.length > 0) {
+          const v = prod.variants.find((variantItem: any) =>
+            variantItem.sku?.trim().toLowerCase() === query.toLowerCase()
+          );
+          if (v) {
+            matchedProduct = prod;
+            matchedVariant = v;
+            break;
+          }
+        }
+      }
+
+      // 2. Exact product barcode or SKU match
+      if (!matchedProduct) {
+        for (const prod of matches) {
+          if (
+            prod.barcode?.trim().toLowerCase() === query.toLowerCase() ||
+            prod.sku?.trim().toLowerCase() === query.toLowerCase()
+          ) {
+            matchedProduct = prod;
+            if (prod.variants?.length === 1) {
+              matchedVariant = prod.variants[0];
+            }
+            break;
+          }
+        }
+      }
+
+      // 3. Fallback: single search result
+      if (!matchedProduct && matches.length === 1) {
+        matchedProduct = matches[0];
+        if (matchedProduct.variants?.length === 1) {
+          matchedVariant = matchedProduct.variants[0];
+        }
+      }
+
+      if (matchedProduct && (matchedVariant || !matchedProduct.variants?.length)) {
+        addItem(matchedProduct, matchedVariant);
+        playPOSBeep(true);
+        const detail = matchedVariant
+          ? ` (${[matchedVariant.size, matchedVariant.color, matchedVariant.sku].filter(Boolean).join(' · ')})`
+          : '';
+        toast.success(`Scanned: ${matchedProduct.name}${detail}`, { duration: 1500 });
+        setSearch('');
+      } else if (matchedProduct && matchedProduct.variants?.length > 1) {
+        playPOSBeep(true);
+        toast('Multiple sizes available — select from list below', { icon: '👆' });
+      } else {
+        playPOSBeep(true);
+        toast('Multiple products found — click to select', { icon: '👆' });
+      }
+    }
+  };
+
   const canSubmit = items.length > 0 && (paymentMethod !== 'CASH' || Number(amountPaid) >= total);
 
   return (
     <div className="h-[calc(100vh-5rem)] flex gap-4">
       {/* Left — Product search + bill */}
       <div className="flex-1 flex flex-col gap-4 min-w-0">
-        {/* Search bar */}
-        <div className="card p-3">
+        {/* Search bar & Barcode scanner ready indicator */}
+        <div className="card p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+              <Search size={13} className="text-gray-400" />
+              Product / Barcode Lookup
+            </label>
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <Barcode size={13} />
+              <span>Barcode Gun Ready ⚡</span>
+            </div>
+          </div>
+
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               ref={searchRef}
               type="text"
-              placeholder="Search by name, barcode, or SKU… (or scan barcode)"
-              className="input pl-9 pr-4 py-2.5 text-sm"
+              placeholder="Scan item barcode with scanner gun, type SKU, or search name…"
+              className="input pl-9 pr-4 py-2.5 text-sm font-mono tracking-tight"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               autoFocus
             />
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-gray-400 px-1 pt-0.5">
+            <span>💡 Laser/CCD guns fire <kbd className="px-1 py-0.2 bg-gray-100 border border-gray-200 rounded text-gray-600 font-mono text-[10px]">Enter</kbd> to add instantly with sound</span>
+            <span>Focus shortcut: <kbd className="px-1 py-0.2 bg-gray-100 border border-gray-200 rounded text-gray-600 font-mono text-[10px]">/</kbd> or <kbd className="px-1 py-0.2 bg-gray-100 border border-gray-200 rounded text-gray-600 font-mono text-[10px]">F2</kbd></span>
           </div>
 
           {/* Search results dropdown */}

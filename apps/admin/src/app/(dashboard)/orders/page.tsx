@@ -1,14 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, Filter, Eye, ChevronDown, Package,
-  Truck, CheckCircle, XCircle, Clock, Printer,
+  Truck, CheckCircle, XCircle, Clock, Printer, Barcode,
+  Volume2, Check, X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
 import { formatNPR, formatDateTime, getOrderStatusClass } from '@/lib/utils';
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 function ShippingLabelModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
   const { data, isLoading } = useQuery({
@@ -56,6 +59,16 @@ function ShippingLabelModal({ orderId, onClose }: { orderId: string; onClose: ()
                   <p className="text-[10px] text-gray-400 uppercase font-semibold">Dest Branch</p>
                   <p className="text-sm font-bold text-primary-700">{label.to_branch?.name || 'DEST'}</p>
                 </div>
+              </div>
+
+              {/* Scannable Order Barcode */}
+              <div className="py-2.5 text-center bg-white border border-gray-100 rounded-lg">
+                <img
+                  src={`${apiUrl}/api/orders/${orderId}/barcode`}
+                  alt="Order Barcode"
+                  className="h-12 mx-auto object-contain"
+                />
+                <p className="text-[10px] font-mono text-gray-400 mt-1">Scan barcode to pack / dispatch</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4 text-xs">
@@ -149,6 +162,11 @@ function OrderDetailSlider({ order, onClose }: { order: any; onClose: () => void
             <div>
               <p className="font-semibold text-gray-900">{order.orderNumber}</p>
               <p className="text-xs text-gray-500">{formatDateTime(order.createdAt)}</p>
+              <img
+                src={`${apiUrl}/api/orders/${order.id}/barcode`}
+                alt="Barcode"
+                className="h-8 mt-1.5 object-contain"
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className={getOrderStatusClass(order.status)}>{order.status}</span>
@@ -326,6 +344,7 @@ export default function OrdersPage() {
   const [search,       setSearch]       = useState('');
   const [page,         setPage]         = useState(1);
   const [selected,     setSelected]     = useState<any>(null);
+  const [showScannerModal, setShowScannerModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['orders', page, statusFilter, search],
@@ -338,33 +357,43 @@ export default function OrdersPage() {
   return (
     <div className="space-y-5">
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-48 max-w-sm">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="search"
-            placeholder="Search order, customer..."
-            className="input pl-9"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="relative flex-1 min-w-48 max-w-sm">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              placeholder="Search order, customer..."
+              className="input pl-9"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+          </div>
+
+          <div className="flex gap-1.5 flex-wrap">
+            {ORDER_STATUSES.map((s) => (
+              <button
+                key={s}
+                onClick={() => { setStatusFilter(s); setPage(1); }}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                  statusFilter === s
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {s === 'ALL' ? 'All' : s}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex gap-1.5 flex-wrap">
-          {ORDER_STATUSES.map((s) => (
-            <button
-              key={s}
-              onClick={() => { setStatusFilter(s); setPage(1); }}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                statusFilter === s
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {s === 'ALL' ? 'All' : s}
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowScannerModal(true)}
+          className="btn-primary text-xs flex items-center gap-1.5 shadow-xs cursor-pointer py-2 px-3.5"
+        >
+          <Barcode size={15} /> Bulk Barcode Dispatch Scanner
+        </button>
       </div>
 
       {/* Table */}
@@ -435,6 +464,281 @@ export default function OrdersPage() {
 
       {/* Detail slider */}
       {selected && <OrderDetailSlider order={selected} onClose={() => setSelected(null)} />}
+
+      {/* Bulk Dispatch Scanner Modal */}
+      {showScannerModal && (
+        <BulkOrderScannerModal onClose={() => setShowScannerModal(false)} />
+      )}
+    </div>
+  );
+}
+
+function BulkOrderScannerModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const [action, setAction] = useState<'PACK' | 'SHIP' | 'VERIFY'>('PACK');
+  const [inputCode, setInputCode] = useState('');
+  const [scanLog, setScanLog] = useState<Array<{
+    orderNumber: string;
+    customerName: string;
+    destination?: string;
+    itemsCount: number;
+    total: number;
+    status: string;
+    message: string;
+    time: string;
+    success: boolean;
+  }>>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Audio synthesizer beep
+  const playBeep = (success = true) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      if (success) {
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(1175, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.18);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.18);
+      } else {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, ctx.currentTime);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.25);
+      }
+    } catch {
+      // Audio not supported
+    }
+  };
+
+  const processScan = async (codeToScan: string) => {
+    const trimmed = codeToScan.trim();
+    if (!trimmed || isProcessing) return;
+
+    setIsProcessing(true);
+    try {
+      const res = await adminApi.post('/api/orders/scan-action', {
+        code: trimmed,
+        action,
+      });
+
+      const data = res.data;
+      const order = data.order;
+      const now = new Date().toLocaleTimeString('en-NP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      playBeep(!data.alreadyProcessed);
+      if (data.alreadyProcessed) {
+        toast(data.message, { icon: 'ℹ️' });
+      } else {
+        toast.success(data.message);
+      }
+
+      setScanLog((prev) => [
+        {
+          orderNumber: order.orderNumber,
+          customerName: order.customerName,
+          destination: order.destination,
+          itemsCount: order.itemsCount,
+          total: Number(order.total),
+          status: order.status,
+          message: data.message,
+          time: now,
+          success: !data.alreadyProcessed,
+        },
+        ...prev,
+      ]);
+
+      qc.invalidateQueries({ queryKey: ['orders'] });
+    } catch (err: any) {
+      playBeep(false);
+      const errMsg = err.response?.data?.message || `No order matching "${trimmed}"`;
+      toast.error(errMsg);
+    } finally {
+      setInputCode('');
+      setIsProcessing(false);
+      inputRef.current?.focus();
+    }
+  };
+
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-primary-600 flex items-center justify-center">
+              <Barcode size={22} />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-base font-serif flex items-center gap-2">
+                Bulk Barcode Dispatch Scanner
+                <span className="text-[10px] bg-green-50 text-green-700 font-bold px-2 py-0.5 rounded-full border border-green-200">
+                  Hardware Gun Ready ⚡
+                </span>
+              </h3>
+              <p className="text-[11px] text-gray-500">Scan barcodes in bulk with handheld laser/CCD scanner gun or type manually</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Action Mode Pills */}
+        <div>
+          <label className="text-xs font-bold text-gray-700 block mb-1.5">Select Scanner Target Action:</label>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setAction('PACK')}
+              className={`p-3 rounded-2xl border text-left cursor-pointer transition-all ${
+                action === 'PACK'
+                  ? 'border-primary-600 bg-rose-50 text-primary-950 font-bold shadow-xs'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="text-base">📦</span>
+              <p className="text-xs mt-1">1. Scan to Pack</p>
+              <p className="text-[10px] text-gray-500 font-normal">Mark packed &amp; push to NCM</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAction('SHIP')}
+              className={`p-3 rounded-2xl border text-left cursor-pointer transition-all ${
+                action === 'SHIP'
+                  ? 'border-primary-600 bg-rose-50 text-primary-950 font-bold shadow-xs'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="text-base">🚀</span>
+              <p className="text-xs mt-1">2. Scan to Ship</p>
+              <p className="text-[10px] text-gray-500 font-normal">Handover to courier rider</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAction('VERIFY')}
+              className={`p-3 rounded-2xl border text-left cursor-pointer transition-all ${
+                action === 'VERIFY'
+                  ? 'border-primary-600 bg-rose-50 text-primary-950 font-bold shadow-xs'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="text-base">🔍</span>
+              <p className="text-xs mt-1">3. Scan to Verify</p>
+              <p className="text-[10px] text-gray-500 font-normal">Inspect details &amp; check status</p>
+            </button>
+          </div>
+        </div>
+
+        {/* Scan Input Area */}
+        <div className="p-4 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300 space-y-3">
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputCode}
+              onChange={(e) => setInputCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  processScan(inputCode);
+                }
+              }}
+              placeholder="Point scanner gun & pull trigger (or type GMC-1014 and press Enter)..."
+              className="input w-full py-3.5 pl-4 pr-24 text-sm font-mono font-bold bg-white ring-2 ring-primary-500/30"
+              disabled={isProcessing}
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => processScan(inputCode)}
+              disabled={!inputCode.trim() || isProcessing}
+              className="absolute right-2 top-1/2 -translate-y-1/2 btn-primary text-xs py-1.5 px-3 cursor-pointer"
+            >
+              {isProcessing ? 'Processing…' : 'Enter ↵'}
+            </button>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-gray-500">
+            <span className="flex items-center gap-1">
+              <Volume2 size={13} className="text-primary-600" />
+              Audio Beep active on scan
+            </span>
+            <span className="font-mono">
+              Scanned this batch: <strong className="text-gray-900">{scanLog.length}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Scan Activity Log */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-gray-800">Batch Scan Log</span>
+            {scanLog.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setScanLog([])}
+                className="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                Clear Log
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-52 overflow-y-auto divide-y divide-gray-100 border border-gray-100 rounded-2xl">
+            {scanLog.length === 0 ? (
+              <div className="py-8 text-center text-xs text-gray-400">
+                Ready to scan. Pull trigger on parcel label or type barcode above.
+              </div>
+            ) : (
+              scanLog.map((log, idx) => (
+                <div key={idx} className="p-3 flex items-center justify-between text-xs hover:bg-gray-50">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-gray-900">{log.orderNumber}</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
+                        {log.status}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-500">
+                      {log.customerName} {log.destination ? `· ${log.destination}` : ''} · {log.itemsCount} items · {formatNPR(log.total)}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-400">{log.time}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-secondary text-xs py-2 px-5 cursor-pointer"
+          >
+            Done Scanning
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
