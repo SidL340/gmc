@@ -44,15 +44,61 @@ export interface NCMBranch {
 }
 
 class DeliveryService {
-  private apiToken = process.env.NCM_API_TOKEN || process.env.NCM_API_KEY || '0c593255a1805c938fd006ab01db5465fa680d8c';
-  private baseUrl = (process.env.NCM_BASE_URL || 'https://demo.nepalcanmove.com').replace(/\/$/, '');
-  private defaultFromBranch = (process.env.NCM_DEFAULT_FROM_BRANCH || 'TINKUNE').toUpperCase();
-
   private branchesCache: NCMBranch[] | null = null;
   private branchesCacheTime = 0;
 
-  private get isConfigured(): boolean {
+  public get environment(): 'demo' | 'production' {
+    if (process.env.NCM_ENV) {
+      return process.env.NCM_ENV.toLowerCase() === 'production' ? 'production' : 'demo';
+    }
+    if (process.env.NCM_BASE_URL) {
+      return process.env.NCM_BASE_URL.includes('demo') ? 'demo' : 'production';
+    }
+    return 'demo';
+  }
+
+  public get baseUrl(): string {
+    if (process.env.NCM_BASE_URL) {
+      return process.env.NCM_BASE_URL.replace(/\/$/, '');
+    }
+    return this.environment === 'production'
+      ? 'https://nepalcanmove.com'
+      : 'https://demo.nepalcanmove.com';
+  }
+
+  public get portalUrl(): string {
+    return this.environment === 'production'
+      ? 'https://nepalcanmove.com/'
+      : 'https://demo.nepalcanmove.com/';
+  }
+
+  public get apiToken(): string {
+    if (process.env.NCM_API_TOKEN) return process.env.NCM_API_TOKEN;
+    if (process.env.NCM_API_KEY) return process.env.NCM_API_KEY;
+    // In demo mode, fallback to demo vendor token
+    if (this.environment === 'demo') {
+      return '0c593255a1805c938fd006ab01db5465fa680d8c';
+    }
+    return '';
+  }
+
+  public get defaultFromBranch(): string {
+    return (process.env.NCM_DEFAULT_FROM_BRANCH || 'TINKUNE').toUpperCase();
+  }
+
+  public get isConfigured(): boolean {
     return !!this.apiToken;
+  }
+
+  public getConfig() {
+    return {
+      environment: this.environment,
+      baseUrl: this.baseUrl,
+      portalUrl: this.portalUrl,
+      defaultFromBranch: this.defaultFromBranch,
+      isConfigured: this.isConfigured,
+      isDemo: this.environment === 'demo',
+    };
   }
 
   private get authHeaders() {
@@ -163,7 +209,7 @@ class DeliveryService {
         success: true,
         ncmShipmentId: `STUB-NCM-${params.orderId.slice(-6)}`,
         trackingNumber,
-        trackingUrl: `https://demo.nepalcanmove.com/track/${trackingNumber}`,
+        trackingUrl: `${this.baseUrl}/track/${trackingNumber}`,
         status: 'PENDING',
       };
     }
@@ -246,7 +292,7 @@ class DeliveryService {
         success: true,
         ncmShipmentId: `NCM-DEV-${params.orderId.slice(-6)}`,
         trackingNumber: fallbackTracking,
-        trackingUrl: `https://demo.nepalcanmove.com/track/${fallbackTracking}`,
+        trackingUrl: `${this.baseUrl}/track/${fallbackTracking}`,
         status: 'PENDING',
       };
     }

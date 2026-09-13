@@ -79,6 +79,10 @@ export const getShipmentLabel = async (req: AuthRequest, res: Response) => {
   });
 };
 
+export const getNCMConfig = async (req: Request, res: Response) => {
+  res.json({ success: true, data: deliveryService.getConfig() });
+};
+
 export const getNCMBranches = async (req: Request, res: Response) => {
   const branches = await deliveryService.getBranches();
   res.json({ success: true, data: branches });

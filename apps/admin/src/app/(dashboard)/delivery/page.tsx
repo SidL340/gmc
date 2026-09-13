@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -15,6 +15,12 @@ export default function DeliveryManagementPage() {
   const [rateEstimate, setRateEstimate] = useState<number | null>(null);
   const [calcLoading, setCalcLoading] = useState(false);
   const [labelOrderId, setLabelOrderId] = useState<string | null>(null);
+
+  // Fetch NCM config (demo vs production)
+  const { data: ncmConfig } = useQuery({
+    queryKey: ['ncm-config'],
+    queryFn: () => adminApi.get('/api/shipments/config').then((r) => r.data.data),
+  });
 
   // Fetch branches
   const { data: branchesData, isLoading: branchesLoading } = useQuery({
@@ -59,20 +65,48 @@ export default function DeliveryManagementPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            NCM API Connected
-          </span>
+          {ncmConfig?.isDemo ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              Demo Environment
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Live Production
+            </span>
+          )}
           <a
-            href="https://demo.nepalcanmove.com/"
+            href={ncmConfig?.portalUrl || 'https://demo.nepalcanmove.com/'}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-secondary text-xs flex items-center gap-1"
           >
-            NCM Portal <ExternalLink size={12} />
+            {ncmConfig?.isDemo ? 'Demo NCM Portal' : 'NCM Portal'} <ExternalLink size={12} />
           </a>
         </div>
       </div>
+
+      {/* Demo Notice Banner */}
+      {ncmConfig?.isDemo && (
+        <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-start justify-between gap-4 text-xs text-amber-900 shadow-sm">
+          <div className="space-y-1">
+            <p className="font-bold flex items-center gap-1.5 text-amber-950">
+              <AlertCircle size={15} className="text-amber-600 flex-shrink-0" />
+              NepalCanMove Demo Server Active (Development Mode)
+            </p>
+            <p className="text-amber-800">
+              Shipment dispatches, rate lookups, and branch resolutions are connected to NepalCanMove's demo portal. Physical couriers will not be dispatched.
+            </p>
+            <p className="text-amber-700 text-[11px] pt-1">
+              🚀 <strong>When ready for Live Orders:</strong> Set <code className="bg-white/80 px-1.5 py-0.5 rounded border border-amber-300 font-mono text-amber-900">NCM_ENV=production</code> and paste your live token in <code className="bg-white/80 px-1.5 py-0.5 rounded border border-amber-300 font-mono text-amber-900">apps/api/.env</code>. The entire platform will switch seamlessly without code edits!
+            </p>
+          </div>
+          <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 font-mono text-[10px] font-bold uppercase whitespace-nowrap">
+            REST v2 API
+          </span>
+        </div>
+      )}
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

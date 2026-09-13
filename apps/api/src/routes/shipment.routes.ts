@@ -4,12 +4,14 @@ import {
   getShipmentLabel,
   getNCMBranches,
   getNCMRate,
+  getNCMConfig,
   updateShipmentStatus,
 } from '../controllers/shipment.controller';
 import { authenticate, requireAdmin } from '../middleware/auth.middleware';
 
 const router = Router();
 
+router.get('/config', getNCMConfig);
 router.get('/branches', getNCMBranches);
 router.get('/rate', getNCMRate);
 router.get('/:orderId', authenticate, getShipmentByOrder);
