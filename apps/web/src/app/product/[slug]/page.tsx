@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
@@ -10,7 +10,7 @@ import TikTokEmbed from '@/components/tiktok/TikTokEmbed';
 import toast from 'react-hot-toast';
 import {
   ShoppingBag, Heart, Truck, ShieldCheck,
-  Check, Sparkles, Star
+  Check, Sparkles, Star, Ruler, X,
 } from 'lucide-react';
 
 export default function ProductDetailPage() {
@@ -21,11 +21,20 @@ export default function ProductDetailPage() {
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
+  const [showSizeChart, setShowSizeChart] = useState(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', slug],
     queryFn: () => api.get(`/api/products/${slug}`).then((r) => r.data.data),
   });
+
+  // Auto-select first in-stock size/variant on load
+  useEffect(() => {
+    if (product?.variants?.length > 0 && !selectedVariant) {
+      const firstInStock = product.variants.find((v: any) => v.stock > 0) || product.variants[0];
+      setSelectedVariant(firstInStock);
+    }
+  }, [product?.variants]);
 
   const { data: reviewsData } = useQuery({
     queryKey: ['product-reviews', product?.id],
@@ -72,6 +81,13 @@ export default function ProductDetailPage() {
       return;
     }
 
+    if (product.variants?.length > 0 && !selectedVariant) {
+      toast.error('Please select your size first!');
+      return;
+    }
+
+    const effectiveSize = selectedVariant?.size || (product.variants?.length ? null : 'Free Size');
+
     addItem({
       id: `${product.id}-${selectedVariant?.id || 'base'}`,
       productId: product.id,
@@ -79,7 +95,7 @@ export default function ProductDetailPage() {
       name: product.name,
       slug: product.slug,
       image: currentImage,
-      size: selectedVariant?.size || null,
+      size: effectiveSize,
       color: selectedVariant?.color || null,
       quantity,
       unitPrice: currentPrice,
@@ -87,7 +103,7 @@ export default function ProductDetailPage() {
       stock: availableStock,
     });
 
-    toast.success(`Added ${quantity}x ${product.name} to cart!`);
+    toast.success(`Added ${quantity}x ${product.name}${effectiveSize ? ` (${effectiveSize})` : ''} to bag!`);
   };
 
   const handleBuyNow = () => {
@@ -164,31 +180,65 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {/* Variants Selector */}
-          {product.variants?.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                Select Option (Size / Color)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {product.variants.map((v: any) => (
-                  <button
-                    key={v.id}
-                    onClick={() => setSelectedVariant(v)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                      selectedVariant?.id === v.id
-                        ? 'border-primary-600 bg-primary-50 text-primary-700 ring-1 ring-primary-400'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {v.size && `Size: ${v.size}`}
-                    {v.color && ` · ${v.color}`}
-                    {v.stock <= 0 && ' (Out of stock)'}
-                  </button>
-                ))}
+          {/* ── Size & Option Selector ── */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-gray-900">
+                  Select Size:
+                </span>
+                <span className="text-xs font-black text-primary-700 bg-rose-50 px-2.5 py-0.5 rounded-lg border border-rose-200">
+                  {selectedVariant?.size || (product.variants?.length ? 'Choose size' : 'Free Size')}
+                </span>
               </div>
+
+              {/* Size Guide Trigger */}
+              <button
+                type="button"
+                onClick={() => setShowSizeChart(true)}
+                className="text-xs font-bold text-primary-600 hover:text-primary-800 flex items-center gap-1 hover:underline cursor-pointer"
+              >
+                <Ruler size={13} />
+                <span>Size Chart &amp; Guide</span>
+              </button>
             </div>
-          )}
+
+            {product.variants?.length > 0 ? (
+              <div className="flex flex-wrap gap-2.5">
+                {product.variants.map((v: any) => {
+                  const isSelected = selectedVariant?.id === v.id;
+                  const isOutOfStock = v.stock <= 0;
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      disabled={isOutOfStock}
+                      onClick={() => setSelectedVariant(v)}
+                      className={`min-w-[54px] h-11 px-4 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        isSelected
+                          ? 'border-primary-600 bg-primary-600 text-white shadow-md shadow-rose-200 scale-105 ring-2 ring-rose-200'
+                          : isOutOfStock
+                          ? 'border-gray-200 bg-gray-100 text-gray-400 line-through cursor-not-allowed'
+                          : 'border-gray-200 bg-white text-gray-800 hover:border-primary-500 hover:bg-rose-50/60 shadow-2xs'
+                      }`}
+                    >
+                      <span>{v.size}</span>
+                      {v.color && <span className="text-[10px] opacity-75 font-normal">({v.color})</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-3 bg-rose-50/50 rounded-xl border border-rose-100 text-xs text-gray-700 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-primary-900 block">Free Size (Standard Boutique Fit)</span>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Comfortably fits bust sizes 34" to 44" with internal stitching margin.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Stock Indicator */}
           <div className="flex items-center gap-2 text-xs">
@@ -322,6 +372,181 @@ export default function ProductDetailPage() {
           )}
         </div>
       </section>
+
+      {/* ── Size Guide Modal ── */}
+      {showSizeChart && (
+        <SizeGuideModal onClose={() => setShowSizeChart(false)} />
+      )}
+    </div>
+  );
+}
+
+// ── Nepali Boutique Size Chart & Guide Modal ─────────────────────────────────
+function SizeGuideModal({ onClose }: { onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState<'kurta' | 'saree' | 'lehenga'>('kurta');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">📏</span>
+            <div>
+              <h3 className="font-bold text-gray-900 text-base font-serif">Boutique Size Guide</h3>
+              <p className="text-[11px] text-gray-500">Standard Nepali Women's Fashion Measurements</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Tab Selection */}
+        <div className="flex p-1 bg-gray-100 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setActiveTab('kurta')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              activeTab === 'kurta' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            Kurta &amp; Suits
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('saree')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              activeTab === 'saree' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            Sarees &amp; Blouses
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('lehenga')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              activeTab === 'lehenga' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-500 hover:text-gray-800'
+            }`}
+          >
+            Lehengas
+          </button>
+        </div>
+
+        {/* Kurta Size Table */}
+        {activeTab === 'kurta' && (
+          <div className="space-y-3">
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-rose-50 text-primary-900 font-bold">
+                  <tr>
+                    <th className="p-2.5">Size</th>
+                    <th className="p-2.5">Bust (in)</th>
+                    <th className="p-2.5">Waist (in)</th>
+                    <th className="p-2.5">Hip (in)</th>
+                    <th className="p-2.5">Length (in)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-gray-700 font-medium">
+                  <tr className="hover:bg-gray-50">
+                    <td className="p-2.5 font-bold text-gray-900">XS</td>
+                    <td className="p-2.5">34"</td>
+                    <td className="p-2.5">30"</td>
+                    <td className="p-2.5">36"</td>
+                    <td className="p-2.5">43"</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="p-2.5 font-bold text-gray-900">S</td>
+                    <td className="p-2.5">36"</td>
+                    <td className="p-2.5">32"</td>
+                    <td className="p-2.5">38"</td>
+                    <td className="p-2.5">44"</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="p-2.5 font-bold text-gray-900">M</td>
+                    <td className="p-2.5">38"</td>
+                    <td className="p-2.5">34"</td>
+                    <td className="p-2.5">40"</td>
+                    <td className="p-2.5">44"</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="p-2.5 font-bold text-gray-900">L</td>
+                    <td className="p-2.5">40"</td>
+                    <td className="p-2.5">36"</td>
+                    <td className="p-2.5">42"</td>
+                    <td className="p-2.5">45"</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="p-2.5 font-bold text-gray-900">XL</td>
+                    <td className="p-2.5">42"</td>
+                    <td className="p-2.5">38"</td>
+                    <td className="p-2.5">44"</td>
+                    <td className="p-2.5">45"</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="p-2.5 font-bold text-gray-900">XXL</td>
+                    <td className="p-2.5">44"</td>
+                    <td className="p-2.5">40"</td>
+                    <td className="p-2.5">46"</td>
+                    <td className="p-2.5">46"</td>
+                  </tr>
+                  <tr className="hover:bg-gray-50">
+                    <td className="p-2.5 font-bold text-gray-900">3XL</td>
+                    <td className="p-2.5">46"</td>
+                    <td className="p-2.5">42"</td>
+                    <td className="p-2.5">48"</td>
+                    <td className="p-2.5">46"</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-gray-500 italic">
+              💡 Note: All GM Collection House stitched pieces include 2 inches of internal margin for custom tailoring alterations.
+            </p>
+          </div>
+        )}
+
+        {/* Saree Measurements */}
+        {activeTab === 'saree' && (
+          <div className="space-y-3 text-xs text-gray-700">
+            <div className="p-3.5 bg-rose-50 rounded-xl border border-rose-100 space-y-2">
+              <p className="font-bold text-primary-900">Traditional Saree Dimensions:</p>
+              <ul className="list-disc list-inside space-y-1 text-gray-600">
+                <li><strong>Saree Length:</strong> 5.5 meters (fits all body types &amp; heights)</li>
+                <li><strong>Blouse Piece:</strong> 0.8 meters unstitched included with matching border</li>
+                <li><strong>Fabric Width:</strong> 44 inches standard draping width</li>
+              </ul>
+            </div>
+            <p className="text-[11px] text-gray-500">
+              Free Size drape suitable for women of all sizes from XS to 4XL.
+            </p>
+          </div>
+        )}
+
+        {/* Lehenga Measurements */}
+        {activeTab === 'lehenga' && (
+          <div className="space-y-3 text-xs text-gray-700">
+            <div className="p-3.5 bg-rose-50 rounded-xl border border-rose-100 space-y-2">
+              <p className="font-bold text-primary-900">Lehenga Choli Specifications:</p>
+              <ul className="list-disc list-inside space-y-1 text-gray-600">
+                <li><strong>Lehenga Skirt Waist:</strong> Fits up to 42" with adjustable drawstring &amp; latkan</li>
+                <li><strong>Lehenga Skirt Length:</strong> 42" to 44" from waist to floor</li>
+                <li><strong>Flared Flair (Ghera):</strong> 3.5 to 4.0 meters wide flare</li>
+                <li><strong>Dupatta Length:</strong> 2.4 meters heavy embroidered net/organza</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Footer info */}
+        <div className="pt-2 border-t border-gray-100 text-center">
+          <p className="text-[11px] text-gray-500">
+            Need custom fitting or sizing assistance? Chat with our AI stylist or message on TikTok!
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

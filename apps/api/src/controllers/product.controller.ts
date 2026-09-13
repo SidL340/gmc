@@ -300,12 +300,13 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       status:         (status as any) || 'ACTIVE',
       ...tiktokData,
       variants: variants?.length ? {
-        create: variants.map((v: any) => ({
+        create: variants.map((v: any, index: number) => ({
           size:   v.size   || null,
-          color:  v.color  || null,
+          color:  v.color  || '',
           colorHex: v.colorHex || null,
-          stock:  parseInt(v.stock) || 0,
+          stock:  parseInt(v.stock) || 10,
           price:  v.price ? parseFloat(v.price) : null,
+          sku:    `${sku}-${(v.size || index).toString().toUpperCase()}`,
         })),
       } : undefined,
     },
@@ -378,6 +379,25 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
   let slug = existing.slug;
   if (updates.name && updates.name !== existing.name) {
     slug = await generateUniqueSlug(updates.name);
+  }
+
+  // Handle variants/sizes update
+  if (updates.variants !== undefined) {
+    await prisma.productVariant.deleteMany({ where: { productId: id } });
+    if (Array.isArray(updates.variants) && updates.variants.length > 0) {
+      const baseSku = existing.sku || `GMC-${id.slice(-6).toUpperCase()}`;
+      await prisma.productVariant.createMany({
+        data: updates.variants.map((v: any, index: number) => ({
+          productId: id,
+          size: v.size || null,
+          color: v.color || '',
+          colorHex: v.colorHex || null,
+          stock: parseInt(v.stock) || (updates.stock ? parseInt(updates.stock) : 10),
+          price: v.price ? parseFloat(v.price) : null,
+          sku: `${baseSku}-${(v.size || index).toString().toUpperCase()}`,
+        })),
+      });
+    }
   }
 
   const product = await prisma.product.update({

@@ -107,9 +107,32 @@ function ProductFormModal({
 
   const tiktokUrl = watch('tiktokUrl');
 
+  // Selected clothing sizes
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(() => {
+    if (product?.variants?.length) {
+      return product.variants.map((v: any) => v.size).filter(Boolean);
+    }
+    return ['Free Size'];
+  });
+  const [customSize, setCustomSize] = useState('');
+
+  const toggleSize = (size: string) => {
+    setSelectedSizes((prev) =>
+      prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]
+    );
+  };
+
+  const handleAddCustomSize = () => {
+    const trimmed = customSize.trim();
+    if (trimmed && !selectedSizes.includes(trimmed)) {
+      setSelectedSizes((prev) => [...prev, trimmed]);
+      setCustomSize('');
+    }
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
-      const payload = {
+      const payload: any = {
         ...data,
         tags: data.tags ? data.tags.split(',').map((t) => t.trim()) : [],
         price:          parseFloat(data.price),
@@ -117,6 +140,12 @@ function ProductFormModal({
         discountPrice:  data.discountPrice ? parseFloat(data.discountPrice) : undefined,
         stock:          parseInt(data.stock),
         status:         data.status || 'ACTIVE',
+        variants:       selectedSizes.map((size) => ({
+          size,
+          color: '',
+          stock: Math.max(1, Math.floor((parseInt(data.stock) || 10) / (selectedSizes.length || 1))),
+          price: parseFloat(data.price),
+        })),
       };
       if (product) {
         return adminApi.put(`/api/products/${product.id}`, payload);
@@ -234,6 +263,65 @@ function ProductFormModal({
             <div>
               <label className="label">Discount Price</label>
               <input {...register('discountPrice')} type="number" className="input" placeholder="999" />
+            </div>
+          </div>
+
+          {/* Available Sizes for Boutique Clothing */}
+          <div className="space-y-2.5 p-4 bg-rose-50/50 rounded-xl border border-rose-200">
+            <div className="flex items-center justify-between">
+              <label className="label mb-0 text-gray-800 font-bold flex items-center gap-1.5">
+                <span>📏</span> Available Sizes
+              </label>
+              <span className="text-[11px] text-gray-500 font-medium">
+                {selectedSizes.length > 0
+                  ? `${selectedSizes.length} size(s): ${selectedSizes.join(', ')}`
+                  : 'Click to select sizes'}
+              </span>
+            </div>
+
+            {/* Quick Size Pills */}
+            <div className="flex flex-wrap gap-2 pt-0.5">
+              {['Free Size', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Unstitched', 'Semi-Stitched'].map((size) => {
+                const isSelected = selectedSizes.includes(size);
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => toggleSize(size)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                      isSelected
+                        ? 'bg-primary-600 text-white border-primary-600 shadow-xs'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {isSelected ? `✓ ${size}` : size}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom size addition */}
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                placeholder="Or type custom size (e.g. 34, 36, 38)..."
+                value={customSize}
+                onChange={(e) => setCustomSize(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddCustomSize();
+                  }
+                }}
+                className="input py-1.5 text-xs flex-1"
+              />
+              <button
+                type="button"
+                onClick={handleAddCustomSize}
+                className="btn-secondary py-1.5 px-3 text-xs whitespace-nowrap font-bold"
+              >
+                + Add Custom
+              </button>
             </div>
           </div>
 
@@ -627,6 +715,15 @@ export default function ProductsPage() {
                       <div>
                         <p className="font-medium text-gray-900 line-clamp-1">{p.name}</p>
                         <p className="text-xs text-gray-400 font-mono">{p.sku}</p>
+                        {p.variants?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {p.variants.map((v: any) => (
+                              <span key={v.id} className="text-[10px] font-bold bg-rose-50 text-primary-700 border border-rose-100 px-1.5 py-0.2 rounded">
+                                {v.size}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
