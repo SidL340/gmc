@@ -1,15 +1,18 @@
-﻿import { prisma } from '../config/db';
+import { prisma } from '../config/db';
 import { logger } from '../config/logger';
 
 export async function autoBootstrapDatabase(): Promise<void> {
   try {
-    const productCount = await prisma.product.count();
-    if (productCount > 0) {
-      logger.info(`📦 Database connected with ${productCount} active products.`);
+    // Check if initial setup already occurred
+    const bootstrapped = await prisma.storeSetting.findUnique({
+      where: { key: 'hasBootstrapped' },
+    });
+    if (bootstrapped) {
+      logger.info('📦 Store settings already initialized. Skipping auto-seed.');
       return;
     }
 
-    logger.info('🌱 Empty database detected! Initializing base boutique catalog and settings...');
+    logger.info('🌱 Initializing boutique settings, superadmin and categories...');
 
     // 1. Super Admin
     await prisma.user.upsert({
@@ -26,6 +29,7 @@ export async function autoBootstrapDatabase(): Promise<void> {
 
     // 2. Settings
     const settings = [
+      { key: 'hasBootstrapped', value: 'true' },
       { key: 'storeName', value: 'GM Collection House' },
       { key: 'storeTagline', value: "Nepal's Premier Women's Boutique" },
       { key: 'storePhone', value: '+977-9800000000' },
@@ -43,7 +47,7 @@ export async function autoBootstrapDatabase(): Promise<void> {
     }
 
     // 3. Categories
-    const kurta = await prisma.category.upsert({
+    await prisma.category.upsert({
       where: { slug: 'kurta' },
       update: {},
       create: {
@@ -54,7 +58,7 @@ export async function autoBootstrapDatabase(): Promise<void> {
       },
     });
 
-    const saree = await prisma.category.upsert({
+    await prisma.category.upsert({
       where: { slug: 'saree' },
       update: {},
       create: {
@@ -76,35 +80,7 @@ export async function autoBootstrapDatabase(): Promise<void> {
       },
     });
 
-    // 4. Initial Active Boutique Piece
-    await prisma.product.create({
-      data: {
-        name: 'Crimson Red Embroidered Silk Kurta Set',
-        slug: 'crimson-red-embroidered-silk-kurta-set',
-        description: 'Exquisite heavy embroidery silk kurta set with matching organza dupatta and straight pant. Perfect for weddings and festive celebrations.',
-        categoryId: kurta.id,
-        price: 4500,
-        discountPrice: 3800,
-        stock: 25,
-        status: 'ACTIVE',
-        isFeatured: true,
-        isNewArrival: true,
-        tiktokUrl: 'https://www.tiktok.com/@gmcollectionhouse',
-        images: {
-          create: [
-            { url: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800', isPrimary: true, isAiGenerated: false, sortOrder: 0 },
-          ],
-        },
-        variants: {
-          create: [
-            { size: 'M', color: 'Crimson Red', stock: 15, sku: 'GMC-KURTA-M' },
-            { size: 'L', color: 'Crimson Red', stock: 10, sku: 'GMC-KURTA-L' },
-          ],
-        },
-      },
-    });
-
-    logger.info('🎉 Cloud database successfully bootstrapped with initial boutique data!');
+    logger.info('🎉 Database base setup ready without hardcoded products.');
   } catch (err: any) {
     logger.warn('Database bootstrap check:', { message: err.message });
   }

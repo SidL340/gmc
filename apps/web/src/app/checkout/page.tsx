@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -28,6 +28,7 @@ export default function CheckoutPage() {
   const { items, subtotal, shippingCharge, total, clearCart } = useCartStore();
   const { isLoggedIn, user } = useAuthStore();
 
+  const [mounted, setMounted] = useState(false);
   const [fullName, setFullName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [province, setProvince] = useState('BAGMATI');
@@ -38,6 +39,15 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'FONEPAY' | 'NEPALPAY'>('COD');
   const [couponCode, setCouponCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (user?.name && !fullName) setFullName(user.name);
+    if (user?.phone && !phone) setPhone(user.phone);
+  }, [user]);
 
   // Address lookup for logged-in users
   const { data: addresses } = useQuery({
@@ -75,11 +85,16 @@ export default function CheckoutPage() {
 
       const shippingAddressId = addrRes.data.data.id;
 
-      // Create order
+      // Create order with cart items from client
       return api.post('/api/orders', {
         shippingAddressId,
         paymentMethod,
         couponCode: appliedDiscount > 0 ? couponCode : undefined,
+        items: items.map((i) => ({
+          productId: i.productId,
+          variantId: i.variantId || null,
+          quantity: i.quantity,
+        })),
       });
     },
     onSuccess: (res) => {
@@ -104,6 +119,15 @@ export default function CheckoutPage() {
   });
 
   const finalTotal = Math.max(0, total - appliedDiscount);
+
+  if (!mounted) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-20 text-center space-y-4">
+        <div className="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs text-gray-500 font-medium">Preparing checkout...</p>
+      </div>
+    );
+  }
 
   if (!isLoggedIn()) {
     return (

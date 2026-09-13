@@ -21,8 +21,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} font-sans min-h-screen flex flex-col`}>
+    <html lang="en" className="overflow-x-hidden">
+      <body className={`${inter.variable} font-sans min-h-screen flex flex-col overflow-x-hidden`}>
         <QueryProvider>
           <Navbar />
           <main className="flex-1 pb-24 md:pb-0">{children}</main>

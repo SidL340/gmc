@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/store/cart.store';
@@ -9,6 +10,20 @@ import { Trash2, ArrowRight, ShoppingBag } from 'lucide-react';
 export default function CartPage() {
   const router = useRouter();
   const { items, itemCount, subtotal, shippingCharge, total, updateQuantity, removeItem } = useCartStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-24 text-center space-y-3">
+        <div className="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-xs text-gray-400 font-medium">Loading your shopping bag...</p>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (

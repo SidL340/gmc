@@ -30,14 +30,15 @@ export default function ProductBarcodePage() {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
   const barcodeImageUrl = `${apiUrl}/api/products/${id}/barcode`;
+  const effectiveSku = product?.sku || product?.barcode || (product?.id ? `GMC-${product.id.slice(-8).toUpperCase()}` : 'GMC-PRODUCT');
 
   const handlePrint = () => {
     window.print();
   };
 
   const handleCopySku = () => {
-    if (product?.sku) {
-      navigator.clipboard.writeText(product.sku);
+    if (effectiveSku) {
+      navigator.clipboard.writeText(effectiveSku);
       setCopied(true);
       toast.success('SKU copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
@@ -98,7 +99,7 @@ export default function ProductBarcodePage() {
         <div className="flex items-center gap-2.5 flex-wrap">
           <a
             href={barcodeImageUrl}
-            download={`${product.sku || 'product'}-barcode.png`}
+            download={`${effectiveSku}-barcode.png`}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-secondary text-xs flex items-center gap-1.5 shadow-sm"
@@ -180,7 +181,7 @@ export default function ProductBarcodePage() {
               <div className="bg-white p-2 rounded-lg border border-gray-200 text-center mb-4 print:border-none">
                 <img
                   src={barcodeImageUrl}
-                  alt={`Barcode for ${product.sku}`}
+                  alt={`Barcode for ${effectiveSku}`}
                   className="mx-auto max-h-16 w-auto object-contain"
                 />
               </div>
@@ -205,7 +206,7 @@ export default function ProductBarcodePage() {
                   )}
                 </div>
                 <div className="text-[10px] text-gray-400 mt-1 flex items-center justify-center gap-1 font-mono">
-                  <span>SKU: {product.sku}</span>
+                  <span>SKU: {effectiveSku}</span>
                 </div>
               </div>
 
@@ -230,7 +231,7 @@ export default function ProductBarcodePage() {
                     {product.category?.name || 'Garment'}
                   </span>
                   <h3 className="font-bold text-gray-900 text-sm line-clamp-1">{product.name}</h3>
-                  <p className="text-xs text-gray-500 font-mono mt-0.5">SKU: {product.sku}</p>
+                  <p className="text-xs text-gray-500 font-mono mt-0.5">SKU: {effectiveSku}</p>
                 </div>
               </div>
 
@@ -240,43 +241,27 @@ export default function ProductBarcodePage() {
                   <span className="font-semibold text-gray-900">{product.stock} pcs available</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Status:</span>
-                  <span className="font-semibold text-emerald-600">{product.status}</span>
+                  <span className="text-gray-400">Product Status:</span>
+                  <span className="font-semibold text-gray-900 capitalize">{product.status?.toLowerCase()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Retail Price:</span>
-                  <span className="font-bold text-gray-900">Rs. {Number(product.price).toLocaleString()}</span>
+                  <span className="text-gray-400">System Barcode:</span>
+                  <span className="font-mono text-gray-900 font-bold">{effectiveSku}</span>
                 </div>
-                {product.discountPrice && (
-                  <div className="flex justify-between">
-                    <span className="text-rose-500 font-medium">Sale Price:</span>
-                    <span className="font-bold text-primary-700">Rs. {Number(product.discountPrice).toLocaleString()}</span>
-                  </div>
-                )}
               </div>
 
-              <div className="pt-2 flex flex-col gap-2">
-                <button
-                  onClick={handleCopySku}
-                  className="w-full btn-secondary text-xs flex items-center justify-center gap-1.5"
-                >
-                  {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                  {copied ? 'SKU Copied!' : 'Copy SKU Code'}
-                </button>
-                <a
-                  href={`${process.env.NEXT_PUBLIC_STORE_URL || 'http://localhost:3000'}/product/${product.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full text-center py-2 text-xs font-semibold text-primary-600 hover:underline flex items-center justify-center gap-1"
-                >
-                  <span>View Customer Product Page</span>
-                  <ExternalLink size={12} />
-                </a>
+              <div className="text-xs text-gray-500 bg-rose-50 p-4 rounded-xl border border-rose-100 space-y-1.5">
+                <p className="font-bold text-primary-900 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-primary-600" /> Boutique Label Advice
+                </p>
+                <p className="text-[11px] text-primary-700 leading-relaxed">
+                  Print on standard A4 self-adhesive sticker paper or heavy 250gsm card stock for luxury hang tags.
+                </p>
               </div>
             </div>
           </div>
         ) : (
-          /* Multi-tag Sheet Layout (8 Tags for standard A4 sticker sheet) */
+          /* Multi-Tag Sheet Grid Preview (A4 Printable) */
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:grid-cols-2 print:gap-3">
             {Array.from({ length: 8 }).map((_, index) => (
               <div
@@ -296,7 +281,7 @@ export default function ProductBarcodePage() {
 
                 <img
                   src={barcodeImageUrl}
-                  alt={product.sku}
+                  alt={effectiveSku}
                   className="mx-auto h-10 w-auto object-contain my-1"
                 />
 
@@ -304,7 +289,7 @@ export default function ProductBarcodePage() {
                   <span className="font-bold text-xs text-gray-900">
                     Rs. {Number(product.discountPrice || product.price).toLocaleString()}
                   </span>
-                  <p className="text-[9px] font-mono text-gray-500">{product.sku}</p>
+                  <p className="text-[9px] font-mono text-gray-500">{effectiveSku}</p>
                 </div>
               </div>
             ))}

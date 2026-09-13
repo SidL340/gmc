@@ -47,7 +47,7 @@ export default function HomePage() {
 
   // Determine hero highlight product dynamically from active database inventory
   const heroProduct = featured[0] || newArrivals[0] || null;
-  const heroImage = heroProduct?.images?.[0]?.url || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
+  const heroImage = heroProduct?.images?.[0]?.url || '/logo.jpg';
 
   const scrollContainer = (ref: React.RefObject<HTMLDivElement | null>, offset: number) => {
     if (ref.current) {
@@ -58,24 +58,24 @@ export default function HomePage() {
   return (
     <div className="space-y-16 pb-16">
       {/* ── Hero Banner ── */}
-      <section className="relative bg-gradient-to-br from-rose-100 via-rose-50 to-pink-100 py-16 md:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-10 lg:gap-14">
-          <div className="max-w-xl space-y-6 text-center md:text-left z-10">
-            <span className="inline-flex items-center gap-1.5 bg-primary-100 text-primary-800 text-xs font-bold px-3.5 py-1.5 rounded-full shadow-xs animate-pulse">
-              <Sparkles size={14} /> New Festive &amp; Wedding Collection 2026
+      <section className="relative bg-gradient-to-br from-rose-100 via-rose-50 to-pink-100 py-8 sm:py-14 md:py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-10 lg:gap-14">
+          <div className="max-w-xl space-y-3.5 sm:space-y-6 text-center md:text-left z-10">
+            <span className="inline-flex items-center gap-1.5 bg-primary-100 text-primary-800 text-[11px] sm:text-xs font-bold px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full shadow-xs animate-pulse">
+              <Sparkles size={13} /> New Festive &amp; Wedding Collection 2026
             </span>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-extrabold text-gray-900 leading-tight tracking-tight">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-serif font-extrabold text-gray-900 leading-tight tracking-tight">
               Grace &amp; Elegance For Every Woman
             </h1>
-            <p className="text-base sm:text-lg text-gray-600 leading-relaxed font-normal">
+            <p className="text-sm sm:text-base lg:text-lg text-gray-600 leading-relaxed font-normal">
               Discover authentic Nepali traditional &amp; modern ladies' wear. Premium Kurtas, breathtaking Sarees, and gorgeous designer dresses curated in Kathmandu.
             </p>
-            <div className="flex flex-wrap gap-3 justify-center md:justify-start pt-2">
+            <div className="flex flex-wrap gap-2.5 sm:gap-3 justify-center md:justify-start pt-1 sm:pt-2">
               <Link
                 href="/shop"
-                className="btn-primary bg-primary-600 hover:bg-primary-700 text-white px-7 py-3.5 rounded-full font-bold text-sm shadow-lg shadow-rose-300/50 hover:shadow-xl transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                className="btn-primary bg-primary-600 hover:bg-primary-700 text-white px-6 sm:px-7 py-3 sm:py-3.5 rounded-full font-bold text-xs sm:text-sm shadow-lg shadow-rose-300/50 hover:shadow-xl transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
               >
-                Shop Collection <ArrowRight size={16} />
+                Shop Collection <ArrowRight size={15} />
               </Link>
               <Link
                 href="/#tiktok"
@@ -87,34 +87,54 @@ export default function HomePage() {
           </div>
 
           {/* Dynamic Hero Spotlight Card */}
-          <div className="relative w-full max-w-sm sm:max-w-md aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl border-4 border-white group">
-            <img
-              src={heroImage}
-              alt={heroProduct?.name || "GM Collection House Women's Fashion"}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-            <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
-              <p className="text-[11px] uppercase tracking-widest font-bold text-rose-300">
-                {heroProduct?.category?.name || 'Featured Collection'}
-              </p>
-              <p className="text-lg sm:text-xl font-serif font-bold line-clamp-1">
-                {heroProduct?.name || 'Designer Festive Collection'}
-              </p>
-              {heroProduct && (
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm font-extrabold text-rose-200">
-                    Rs. {Number(heroProduct.discountPrice || heroProduct.price).toLocaleString()}
-                  </span>
-                  <Link
-                    href={`/product/${heroProduct.slug}`}
-                    className="text-xs font-bold bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 py-1 rounded-full text-white transition-colors"
-                  >
-                    View Details →
-                  </Link>
+          <div className="relative w-full max-w-sm sm:max-w-md aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl border-4 border-white group bg-rose-50 flex items-center justify-center">
+            {heroProduct ? (
+              <>
+                <img
+                  src={heroImage}
+                  alt={heroProduct.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
+                  <p className="text-[11px] uppercase tracking-widest font-bold text-rose-300">
+                    {heroProduct.category?.name || 'Featured Collection'}
+                  </p>
+                  <p className="text-lg sm:text-xl font-serif font-bold line-clamp-1">
+                    {heroProduct.name}
+                  </p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-sm font-extrabold text-rose-200">
+                      Rs. {Number(heroProduct.discountPrice || heroProduct.price).toLocaleString()}
+                    </span>
+                    <Link
+                      href={`/product/${heroProduct.slug}`}
+                      className="text-xs font-bold bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 py-1 rounded-full text-white transition-colors"
+                    >
+                      View Details →
+                    </Link>
+                  </div>
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="text-center p-8 space-y-4">
+                <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-rose-300 shadow-md mx-auto bg-white p-1">
+                  <img src="/logo.jpg" alt="GM Collection House" className="w-full h-full object-cover rounded-full" />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-xl text-gray-900">GM Collection House</h3>
+                  <p className="text-xs text-primary-600 font-semibold uppercase tracking-wider mt-1">
+                    House of Women's Fashion · Nepal
+                  </p>
+                </div>
+                <Link
+                  href="/shop"
+                  className="inline-block btn-primary text-xs px-5 py-2 rounded-full font-bold shadow-sm"
+                >
+                  Explore Boutique Styles →
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </section>

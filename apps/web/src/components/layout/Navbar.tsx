@@ -45,14 +45,14 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-rose-100 shadow-sm">
       {/* Top announcement bar */}
-      <div className="bg-gradient-to-r from-primary-700 via-primary-600 to-rose-700 text-white text-xs py-1.5 px-4 font-medium">
+      <div className="bg-gradient-to-r from-primary-700 via-primary-600 to-rose-700 text-white text-xs py-1.5 px-3 sm:px-4 font-medium overflow-hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="hidden sm:flex items-center gap-2 text-[11px] text-rose-100">
             <span>✨ Free Delivery Over Rs. 2000</span>
             <span>•</span>
             <span>COD, FonePay &amp; NepalPay</span>
           </div>
-          <div className="mx-auto sm:mx-0 text-center text-xs font-medium">
+          <div className="w-full sm:w-auto text-center text-xs font-medium truncate">
             GM Collection House · House of Women's Fashion
           </div>
           <div className="hidden md:flex items-center gap-3 text-white/90">
@@ -90,18 +90,18 @@ export default function Navbar() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 flex-shrink-0 group">
-            <div className="w-11 h-11 rounded-full overflow-hidden border border-rose-200 shadow-sm group-hover:scale-105 transition-transform bg-white flex items-center justify-center p-0.5">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 flex-shrink-0 group min-w-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full overflow-hidden border border-rose-200 shadow-sm group-hover:scale-105 transition-transform bg-white flex items-center justify-center p-0.5 flex-shrink-0">
               <img src="/logo.jpg" alt="GM Collection House" className="w-full h-full object-cover rounded-full" />
             </div>
-            <div>
-              <span className="text-xl font-extrabold tracking-tight text-gray-900 font-serif">
+            <div className="min-w-0">
+              <span className="text-sm sm:text-xl font-extrabold tracking-tight text-gray-900 font-serif block truncate">
                 GM COLLECTION
               </span>
-              <span className="block text-[10px] tracking-widest text-primary-600 uppercase font-semibold">
+              <span className="hidden sm:block text-[10px] tracking-widest text-primary-600 uppercase font-semibold truncate">
                 House of Women's Fashion
               </span>
             </div>
@@ -120,20 +120,20 @@ export default function Navbar() {
           </form>
 
           {/* Right Action Icons */}
-          <div className="flex items-center gap-4">
-            {/* Wishlist */}
+          <div className="flex items-center gap-1.5 sm:gap-4 flex-shrink-0">
+            {/* Wishlist (Desktop only - mobile has it in sticky bottom nav) */}
             <Link
               href="/wishlist"
-              className="p-2 text-gray-700 hover:text-primary-600 rounded-full hover:bg-rose-50 transition-colors relative"
+              className="hidden md:flex p-2 text-gray-700 hover:text-primary-600 rounded-full hover:bg-rose-50 transition-colors relative"
               title="Wishlist"
             >
               <Heart size={22} />
             </Link>
 
-            {/* Cart */}
+            {/* Cart (Desktop only - mobile has it in sticky bottom nav with live badge) */}
             <Link
               href="/cart"
-              className="p-2 text-gray-700 hover:text-primary-600 rounded-full hover:bg-rose-50 transition-colors relative"
+              className="hidden md:flex p-2 text-gray-700 hover:text-primary-600 rounded-full hover:bg-rose-50 transition-colors relative"
               title="Shopping Bag"
             >
               <ShoppingBag size={22} />
@@ -150,12 +150,12 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 p-1.5 pr-3 rounded-full hover:bg-gray-100 text-sm font-medium text-gray-700 transition-colors"
+                  className="flex items-center gap-1.5 p-1 pr-2 sm:p-1.5 sm:pr-3 rounded-full hover:bg-gray-100 text-xs sm:text-sm font-medium text-gray-700 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
-                  <span className="hidden lg:inline">{user?.name}</span>
+                  <span className="hidden sm:inline font-semibold">{user?.name?.split(' ')[0]}</span>
                 </button>
                 {userMenuOpen && (
                   <div
@@ -187,9 +187,9 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/login"
-                className="flex items-center gap-1.5 bg-primary-50 text-primary-600 hover:bg-primary-600 hover:text-white px-4 py-2 rounded-full text-sm font-semibold transition-all shadow-sm"
+                className="flex items-center gap-1 bg-rose-50 text-primary-700 hover:bg-primary-600 hover:text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-bold transition-all shadow-xs border border-rose-100"
               >
-                <UserIcon size={16} />
+                <UserIcon size={14} />
                 <span>Login</span>
               </Link>
             )}
@@ -197,10 +197,10 @@ export default function Navbar() {
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-gray-700 hover:text-primary-600"
+              className="md:hidden p-1.5 text-gray-700 hover:text-primary-600 rounded-lg hover:bg-gray-100 transition-colors"
               aria-label="Toggle navigation menu"
             >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
         </div>

@@ -533,21 +533,30 @@ export const getProductBarcode = async (req: Request, res: Response): Promise<vo
 
   let product = await prisma.product.findUnique({
     where: { id },
-    select: { sku: true, name: true, price: true },
+    select: { id: true, sku: true, barcode: true, name: true, price: true },
   });
 
   if (!product) {
     product = await prisma.product.findUnique({
       where: { slug: id },
-      select: { sku: true, name: true, price: true },
+      select: { id: true, sku: true, barcode: true, name: true, price: true },
     });
   }
 
-  if (!product?.sku) throw new AppError('Product or SKU not found.', 404);
+  if (!product) throw new AppError('Product not found.', 404);
+
+  let effectiveSku = product.sku || product.barcode;
+  if (!effectiveSku) {
+    effectiveSku = `GMC-${product.id.slice(-8).toUpperCase()}`;
+    await prisma.product.update({
+      where: { id: product.id },
+      data: { sku: effectiveSku, barcode: effectiveSku },
+    }).catch(() => {});
+  }
 
   const png = await bwipjs.toBuffer({
     bcid:        'code128',
-    text:        product.sku,
+    text:        effectiveSku,
     scale:       3,
     height:      10,
     includetext: true,
@@ -555,7 +564,7 @@ export const getProductBarcode = async (req: Request, res: Response): Promise<vo
   });
 
   res.setHeader('Content-Type', 'image/png');
-  res.setHeader('Content-Disposition', `inline; filename="${product.sku}-barcode.png"`);
+  res.setHeader('Content-Disposition', `inline; filename="${effectiveSku}-barcode.png"`);
   res.send(png);
 };
 

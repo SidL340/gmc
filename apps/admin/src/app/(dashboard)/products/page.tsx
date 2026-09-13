@@ -9,6 +9,7 @@ import {
   Plus, Search, Edit2, Trash2, Eye, EyeOff,
   Upload, Video, Image as ImageIcon, Sparkles, Link,
   X, Check, Barcode, QrCode, Printer, Download, ExternalLink,
+  Camera,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminApi } from '@/lib/api';
@@ -72,7 +73,8 @@ function ProductFormModal({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const fileInputRef  = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef  = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
 
@@ -141,10 +143,32 @@ function ProductFormModal({
     },
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    setFiles(selected);
-    setPreviews(selected.map((f) => URL.createObjectURL(f)));
+  const handleAddFiles = (selectedFiles: File[]) => {
+    if (!selectedFiles.length) return;
+    setFiles((prev) => [...prev, ...selectedFiles].slice(0, 10));
+    setPreviews((prev) => [
+      ...prev,
+      ...selectedFiles.map((f) => URL.createObjectURL(f)),
+    ].slice(0, 10));
+  };
+
+  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      handleAddFiles(Array.from(e.target.files));
+      e.target.value = '';
+    }
+  };
+
+  const handleCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      handleAddFiles(Array.from(e.target.files));
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -248,37 +272,104 @@ function ProductFormModal({
 
           {/* Media upload */}
           <div>
-            <label className="label">Product Photos / Videos</label>
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary-400 transition-colors"
-            >
-              <Upload size={24} className="mx-auto text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600">Click to upload photos or videos</p>
-              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, MP4 · Max 10 files</p>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="label mb-0">Product Photos / Videos</label>
+              <span className="text-[11px] font-medium text-gray-500">
+                {files.length > 0 ? `${files.length} / 10 attached` : 'Max 10 files'}
+              </span>
             </div>
+
+            {/* Direct Phone Upload Action Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+              {/* 1. Direct Phone Camera Button (environment = rear camera) */}
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex items-center justify-center gap-2.5 p-3 rounded-xl border-2 border-dashed border-rose-300 bg-rose-50/70 hover:bg-rose-100/70 text-primary-700 font-semibold text-xs sm:text-sm transition-all hover:scale-[1.01] active:scale-[0.99] shadow-xs"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <Camera size={16} />
+                </div>
+                <div className="text-left">
+                  <span className="block font-bold">📸 Take Photo (Camera)</span>
+                  <span className="block text-[10px] text-primary-600 font-normal">Directly opens phone camera</span>
+                </div>
+              </button>
+
+              {/* 2. Gallery / File Picker */}
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex items-center justify-center gap-2.5 p-3 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100/80 text-gray-700 font-semibold text-xs sm:text-sm transition-all hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <div className="w-8 h-8 rounded-full bg-gray-700 text-white flex items-center justify-center flex-shrink-0">
+                  <ImageIcon size={16} />
+                </div>
+                <div className="text-left">
+                  <span className="block font-bold">🖼️ Phone Gallery / Files</span>
+                  <span className="block text-[10px] text-gray-500 font-normal">Choose existing photos or videos</span>
+                </div>
+              </button>
+            </div>
+
+            {/* Hidden Direct Camera Input */}
             <input
-              ref={fileInputRef}
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleCameraChange}
+            />
+
+            {/* Hidden Gallery / File Picker Input */}
+            <input
+              ref={galleryInputRef}
               type="file"
               multiple
               accept="image/*,video/*"
               className="hidden"
-              onChange={handleFileChange}
+              onChange={handleGalleryChange}
             />
-            {previews.length > 0 && (
-              <div className="flex gap-2 mt-3 flex-wrap">
-                {previews.map((src, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                    {files[i]?.type.startsWith('video/') ? (
-                      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                        <Video size={20} className="text-gray-500" />
-                      </div>
-                    ) : (
-                      <img src={src} alt="" className="w-full h-full object-cover" />
-                    )}
-                  </div>
-                ))}
+
+            {/* Preview Grid with delete button on each item */}
+            {previews.length > 0 ? (
+              <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-gray-700">Attached Media:</span>
+                  <span className="text-[10px] text-gray-500">Tap ✕ to remove any photo</span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
+                  {previews.map((src, i) => (
+                    <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 bg-white shadow-xs">
+                      {files[i]?.type.startsWith('video/') ? (
+                        <div className="w-full h-full bg-gray-900 text-white flex flex-col items-center justify-center p-1">
+                          <Video size={18} />
+                          <span className="text-[9px] mt-0.5 truncate max-w-full px-1">Video</span>
+                        </div>
+                      ) : (
+                        <img src={src} alt={`Preview ${i + 1}`} className="w-full h-full object-cover" />
+                      )}
+                      {/* Delete X badge */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(i)}
+                        className="absolute top-1 right-1 w-5 h-5 bg-black/70 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow transition-colors"
+                        title="Remove image"
+                      >
+                        <X size={12} />
+                      </button>
+                      <span className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1 rounded font-mono">
+                        #{i + 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
+            ) : (
+              <p className="text-[11px] text-gray-400 text-center mt-1">
+                You can tap "Take Photo" to click dress photos with your smartphone camera right now!
+              </p>
             )}
           </div>
 
@@ -334,7 +425,10 @@ function ProductFormModal({
 
 function BarcodeQuickModal({ product, onClose }: { product: any; onClose: () => void }) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const effectiveSku = product.sku || product.barcode || (product.id ? `GMC-${product.id.slice(-8).toUpperCase()}` : 'GMC-PRODUCT');
   const barcodeUrl = `${apiUrl}/api/products/${product.id}/barcode`;
+  const [imgError, setImgError] = useState(false);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
@@ -352,24 +446,32 @@ function BarcodeQuickModal({ product, onClose }: { product: any; onClose: () => 
 
         <div className="text-center space-y-1">
           <p className="font-bold text-gray-900 text-sm line-clamp-2">{product.name}</p>
-          <p className="text-xs text-gray-500 font-mono">SKU: {product.sku}</p>
+          <p className="text-xs text-gray-500 font-mono font-semibold">SKU: {effectiveSku}</p>
           <p className="text-base font-black text-primary-700 mt-1">
             Rs. {Number(product.discountPrice || product.price).toLocaleString()}
           </p>
         </div>
 
-        <div className="p-4 bg-white border border-gray-200 rounded-xl text-center shadow-inner">
-          <img
-            src={barcodeUrl}
-            alt={product.sku}
-            className="mx-auto max-h-20 w-auto object-contain"
-          />
+        <div className="p-4 bg-white border border-gray-200 rounded-xl text-center shadow-inner min-h-[90px] flex items-center justify-center">
+          {!imgError ? (
+            <img
+              src={barcodeUrl}
+              alt={effectiveSku}
+              onError={() => setImgError(true)}
+              className="mx-auto max-h-20 w-auto object-contain"
+            />
+          ) : (
+            <div className="text-center py-2 text-xs text-gray-500 font-mono">
+              <Barcode size={32} className="mx-auto text-gray-400 mb-1" />
+              <span>{effectiveSku}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 pt-2">
           <a
             href={barcodeUrl}
-            download={`${product.sku}-barcode.png`}
+            download={`${effectiveSku}-barcode.png`}
             target="_blank"
             rel="noreferrer"
             className="btn-secondary flex-1 text-xs justify-center flex items-center gap-1.5"

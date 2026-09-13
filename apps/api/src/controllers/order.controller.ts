@@ -14,6 +14,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     paymentMethod,
     couponCode,
     customerNote,
+    items: bodyItems,
   } = req.body;
 
   if (!shippingAddressId) throw new AppError('Shipping address is required', 400);
@@ -27,14 +28,48 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
   });
   if (!shippingAddress) throw new AppError('Shipping address not found', 404);
 
-  // Get cart items
-  const cartItems = await prisma.cartItem.findMany({
-    where: { userId: req.user!.id },
-    include: {
-      product: { include: { images: { orderBy: { isPrimary: 'desc' } } } },
-      variant: true,
-    },
-  });
+  // Get cart items from request body or database
+  let cartItems: Array<{
+    productId: string;
+    variantId: string | null;
+    quantity: number;
+    product: any;
+    variant: any;
+  }> = [];
+
+  if (bodyItems && Array.isArray(bodyItems) && bodyItems.length > 0) {
+    for (const item of bodyItems) {
+      if (!item.productId) continue;
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId },
+        include: { images: { orderBy: { isPrimary: 'desc' } } },
+      });
+      if (!product) continue;
+
+      let variant = null;
+      if (item.variantId) {
+        variant = await prisma.productVariant.findUnique({
+          where: { id: item.variantId },
+        });
+      }
+
+      cartItems.push({
+        productId: item.productId,
+        variantId: item.variantId || null,
+        quantity: Math.max(1, parseInt(item.quantity) || 1),
+        product,
+        variant,
+      });
+    }
+  } else {
+    cartItems = await prisma.cartItem.findMany({
+      where: { userId: req.user!.id },
+      include: {
+        product: { include: { images: { orderBy: { isPrimary: 'desc' } } } },
+        variant: true,
+      },
+    });
+  }
 
   if (!cartItems.length) throw new AppError('Cart is empty', 400);
 
