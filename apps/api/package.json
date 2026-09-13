@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "tsc",
+    "build": "npx prisma generate && npx prisma db push --accept-data-loss && tsc",
     "start": "node dist/index.js",
     "lint": "eslint src/"
   },
   "dependencies": {
     "@gmc/database": "*",
     "@prisma/client": "^5.14.0",
+    "prisma": "^5.14.0",
     "axios": "^1.7.2",
     "bcryptjs": "^2.4.3",
     "bwip-js": "^4.4.0",

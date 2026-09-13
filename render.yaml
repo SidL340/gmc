@@ -4,8 +4,9 @@
     runtime: node
     plan: free
     region: singapore
-    buildCommand: npm install && npx prisma generate --schema=packages/database/prisma/schema.prisma && npx prisma db push --schema=packages/database/prisma/schema.prisma --accept-data-loss && npm run build --workspace=@gmc/api
-    startCommand: node apps/api/dist/index.js
+    rootDir: apps/api
+    buildCommand: npm install && npm run build
+    startCommand: node dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
