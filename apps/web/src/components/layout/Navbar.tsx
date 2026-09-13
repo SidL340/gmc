@@ -35,9 +35,9 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-rose-200">
-              GM
+          <Link href="/" className="flex items-center gap-3 flex-shrink-0 group">
+            <div className="w-11 h-11 rounded-full overflow-hidden border border-rose-200 shadow-sm group-hover:scale-105 transition-transform bg-white flex items-center justify-center p-0.5">
+              <img src="/logo.jpg" alt="GM Collection House" className="w-full h-full object-cover rounded-full" />
             </div>
             <div>
               <span className="text-xl font-extrabold tracking-tight text-gray-900 font-serif">

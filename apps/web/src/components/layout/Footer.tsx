@@ -41,7 +41,15 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Info */}
           <div>
-            <h3 className="text-xl font-serif font-bold text-white mb-3">GM COLLECTION HOUSE</h3>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-11 h-11 rounded-full overflow-hidden bg-white border border-rose-300 p-0.5 shadow-md flex-shrink-0">
+                <img src="/logo.jpg" alt="GM Collection House" className="w-full h-full object-cover rounded-full" />
+              </div>
+              <div>
+                <h3 className="text-lg font-serif font-bold text-white leading-tight">GM COLLECTION</h3>
+                <span className="text-[9px] tracking-widest text-rose-300 uppercase font-semibold">House of Women's Fashion</span>
+              </div>
+            </div>
             <p className="text-sm text-gray-400 leading-relaxed mb-4">
               Nepal's premier clothing store specializing in exquisite ladies' fashion — Kurta sets, Sarees, Lehengas, and contemporary Western wear.
             </p>

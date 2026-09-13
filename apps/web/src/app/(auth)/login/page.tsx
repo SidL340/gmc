@@ -106,8 +106,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-gray-100 shadow-xl space-y-6">
         {/* Header */}
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 bg-primary-100 text-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-3 font-bold text-xl shadow-sm">
-            GM
+          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white border border-rose-200 p-1 shadow-md mx-auto mb-3">
+            <img src="/logo.jpg" alt="GM Collection House" className="w-full h-full object-cover rounded-xl" />
           </div>
           <h2 className="text-2xl font-serif font-bold text-gray-900">
             {step === 'phone' && 'Customer Login'}

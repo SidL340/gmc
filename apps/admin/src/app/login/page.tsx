@@ -94,8 +94,8 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary-500/30">
-            <Store size={28} className="text-white" />
+          <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white border border-white/20 p-1 mx-auto mb-4 shadow-xl shadow-primary-900/40 flex items-center justify-center">
+            <img src="/logo.jpg" alt="GM Collection House" className="w-full h-full object-cover rounded-xl" />
           </div>
           <h1 className="text-2xl font-bold text-white">GM Collection House</h1>
           <p className="text-gray-400 text-sm mt-1">Admin Portal</p>

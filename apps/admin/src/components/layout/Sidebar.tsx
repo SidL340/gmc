@@ -77,12 +77,12 @@ export default function AdminSidebar() {
     <aside className="fixed inset-y-0 left-0 w-64 bg-sidebar border-r border-white/5 flex flex-col z-50">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-        <div className="w-9 h-9 rounded-lg bg-primary-500 flex items-center justify-center flex-shrink-0">
-          <Store className="text-white" size={18} />
+        <div className="w-10 h-10 rounded-xl overflow-hidden bg-white border border-white/10 p-0.5 shadow-sm flex-shrink-0">
+          <img src="/logo.jpg" alt="GM Collection" className="w-full h-full object-cover rounded-lg" />
         </div>
         <div>
           <p className="text-white font-semibold text-sm leading-tight">GM Collection</p>
-          <p className="text-gray-500 text-xs">Admin Panel</p>
+          <p className="text-gray-400 text-xs">Admin &amp; POS Panel</p>
         </div>
       </div>
 
