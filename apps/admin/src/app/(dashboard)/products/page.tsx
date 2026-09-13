@@ -350,8 +350,11 @@ export default function ProductsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => adminApi.delete(`/api/products/${id}`),
-    onSuccess:  () => { toast.success('Product removed.'); qc.invalidateQueries({ queryKey: ['products'] }); },
-    onError:    () => toast.error('Failed to remove product.'),
+    onSuccess:  (res) => {
+      toast.success(res.data?.message || 'Product deleted.');
+      qc.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError:    (err: any) => toast.error(err.response?.data?.message || 'Failed to remove product.'),
   });
 
   const updateStatusMutation = useMutation({
@@ -402,6 +405,7 @@ export default function ProductsPage() {
               { label: 'Active', value: 'ACTIVE' },
               { label: 'Draft', value: 'DRAFT' },
               { label: 'Out of Stock', value: 'OUT_OF_STOCK' },
+              { label: 'Archived', value: 'DISCONTINUED' },
             ].map((tab) => (
               <button
                 key={tab.value}
@@ -555,12 +559,13 @@ export default function ProductsPage() {
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm(`Remove "${p.name}" from the store?`)) {
+                          if (confirm(`Permanently delete "${p.name}"? This action cannot be undone.`)) {
                             deleteMutation.mutate(p.id);
                           }
                         }}
-                        className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete product"
+                        disabled={deleteMutation.isPending}
+                        className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                        title="Delete product permanently"
                       >
                         <Trash2 size={15} />
                       </button>

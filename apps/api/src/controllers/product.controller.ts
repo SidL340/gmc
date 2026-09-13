@@ -73,13 +73,18 @@ export const getProducts = async (req: Request, res: Response): Promise<void> =>
 
   // Status filtering:
   // If status is provided:
-  //   'ALL' -> returns all products regardless of status
-  //   'ACTIVE' | 'DRAFT' | etc. -> returns only products with that status
+  //   'ALL' -> returns active, draft, and out-of-stock products (excludes archived/discontinued)
+  //   'EVERYTHING' -> returns all products including DISCONTINUED
+  //   'ACTIVE' | 'DRAFT' | 'DISCONTINUED' | etc. -> returns only products with that status
   // If status is not provided (e.g. public storefront):
   //   defaults to 'ACTIVE'
-  if (status && status.toUpperCase() !== 'ALL') {
+  if (status && status.toUpperCase() === 'ALL') {
+    where.status = { not: 'DISCONTINUED' };
+  } else if (status && status.toUpperCase() === 'EVERYTHING') {
+    // no status filter
+  } else if (status) {
     where.status = status.toUpperCase();
-  } else if (!status) {
+  } else {
     where.status = 'ACTIVE';
   }
 
@@ -366,13 +371,34 @@ export const updateProduct = async (req: Request, res: Response): Promise<void> 
 export const deleteProduct = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
 
-  const product = await prisma.product.findUnique({ where: { id } });
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: { orderItems: true },
+      },
+    },
+  });
+
   if (!product) throw new AppError('Product not found.', 404);
 
-  // Soft delete — mark as discontinued
-  await prisma.product.update({ where: { id }, data: { status: 'DISCONTINUED' } });
+  // If the product has historical customer orders, archive it to protect financial accounting records
+  if (product._count.orderItems > 0) {
+    await prisma.product.update({
+      where: { id },
+      data: { status: 'DISCONTINUED' },
+    });
+    res.json({
+      success: true,
+      message: `Product has ${product._count.orderItems} order record(s) and was moved to Archived.`,
+    });
+    return;
+  }
 
-  res.json({ success: true, message: 'Product removed from store.' });
+  // Otherwise, permanently delete the product and its relations (cascades variants, images, cart items, reviews)
+  await prisma.product.delete({ where: { id } });
+
+  res.json({ success: true, message: 'Product permanently deleted.' });
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
